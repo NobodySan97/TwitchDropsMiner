@@ -63,7 +63,7 @@ async def check_for_updates(gui):
                 f"A new development build is available (commit: {remote_sha or 'unknown'}).\nDo you want to update now?"
             )
         
-        wants_update = await loop.run_in_executor(None, prompt_update)
+        wants_update = prompt_update()
         if wants_update:
             await perform_update(assets)
 
