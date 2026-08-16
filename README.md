@@ -156,10 +156,17 @@ placed past the period character at the end.
 @Suz1e - For the entirety of the Chinese (简体中文) translation and revisions.  
 @wwj010, @zhangminghao1989, @Self4215 - For the Chinese (简体中文) translation corrections and revisions.  
 @Ricky103403 - For the entirety of the Traditional Chinese (繁體中文) translation.  
-@LusTerCsI - For the Traditional Chinese (繁體中文) translation corrections and revisions.  
-@nwvh - For the entirety of the Czech (Čeština) translation.  
-@Kjerne - For the entirety of the Danish (Dansk) translation.  
-@lmdpocus - For the entirety of the Dutch (Nederlandse) translation.  
+@LusTerCsI - For the Traditional Chinese (繁體中文)## Contributing
+
+Any contributions you make are **greatly appreciated**.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+<!-- Dummy update for testing auto-update --> - For the entirety of the Dutch (Nederlandse) translation.  
 @Rensoraa - For the Traditional Dutch (Nederlandse) translation corrections and revisions.  
 @roobini-gamer - For the entirety of the French (Français) translation.  
 @Calvineries - For the French (Français) translation revisions.  
