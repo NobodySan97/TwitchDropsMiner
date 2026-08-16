@@ -1,0 +1,52 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Controlla ogni ora
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync with Upstream
+        id: sync
+        run: |
+          git remote add upstream https://github.com/DevilXD/TwitchDropsMiner.git
+          git fetch upstream master
+          
+          HEAD_BEFORE=$(git rev-parse HEAD)
+          # Unisci le modifiche di DevilXD nel tuo branch
+          git merge upstream/master --no-edit
+          HEAD_AFTER=$(git rev-parse HEAD)
+          
+          if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
+            git push origin master
+            echo "updated=true" >> $GITHUB_OUTPUT
+            echo "Nuove modifiche trovate e unite con successo!"
+          else
+            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "Nessuna nuova modifica."
+          fi
+
+      - name: Trigger Build Workflow
+        if: steps.sync.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Avvia manualmente la build visto che GITHUB_TOKEN non avvia altri workflow con il push
+          gh workflow run ci.yml --ref master
