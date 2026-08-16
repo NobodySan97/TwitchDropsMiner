@@ -159,11 +159,14 @@ if __name__ == "__main__":
 
         exit_status = 0
         client = Twitch(settings)
+        import updater
         loop = asyncio.get_running_loop()
         if sys.platform == "linux":
             loop.add_signal_handler(signal.SIGINT, lambda *_: client.gui.close())
             loop.add_signal_handler(signal.SIGTERM, lambda *_: client.gui.close())
         try:
+            # Create a background task for the updater so it doesn't block startup
+            loop.create_task(updater.check_for_updates(client.gui))
             await client.run()
         except CaptchaRequired:
             exit_status = 1
