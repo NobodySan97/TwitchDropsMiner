@@ -45,8 +45,8 @@ async def check_for_updates(gui):
         # __version__ looks like "1.2.3.abcdef0" or "1.2.3"
         local_sha = None
         parts = __version__.split('.')
-        if len(parts) > 3:
-            local_sha = parts[3]
+        if len(parts) >= 3:
+            local_sha = parts[-1].strip('"').strip("'")
             
         if remote_sha and local_sha and remote_sha.startswith(local_sha):
             # Already up to date!
@@ -144,7 +144,7 @@ async def perform_update(assets):
 timeout /t 2 /nobreak > NUL
 del "{current_exe}"
 copy "{new_exe}" "{current_exe}"
-start "" "{current_exe}"
+"{current_exe}"
 del "%~f0"
 ''')
             subprocess.Popen([bat_path], creationflags=subprocess.CREATE_NO_WINDOW)
