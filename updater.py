@@ -65,13 +65,13 @@ async def check_for_updates(gui):
         
         wants_update = prompt_update()
         if wants_update:
-            await perform_update(assets)
+            await perform_update(gui, assets)
 
     except Exception as e:
         print(f"Updater: Failed to check for updates: {e}")
 
 
-async def perform_update(assets):
+async def perform_update(gui, assets):
     system = platform.system().lower()
     machine = platform.machine().lower()
     
@@ -94,14 +94,48 @@ async def perform_update(assets):
         messagebox.showerror("Update Failed", f"Could not find an update package for your system ({system} {machine}).")
         return
 
+    import tkinter as tk
+    from tkinter import ttk
+    
+    prog_win = tk.Toplevel(gui._root)
+    prog_win.title("Downloading Update")
+    prog_win.geometry("300x120")
+    prog_win.resizable(False, False)
+    prog_win.geometry("+%d+%d" % (gui._root.winfo_x() + 50, gui._root.winfo_y() + 50))
+    prog_win.transient(gui._root)
+    prog_win.grab_set()
+    
+    lbl = ttk.Label(prog_win, text="Downloading update, please wait...")
+    lbl.pack(pady=10)
+    
+    prog_bar = ttk.Progressbar(prog_win, orient="horizontal", length=250, mode="determinate")
+    prog_bar.pack(pady=5)
+    
+    pct_lbl = ttk.Label(prog_win, text="0%")
+    pct_lbl.pack()
+
     temp_dir = tempfile.mkdtemp(prefix="tdm_update_")
     zip_path = os.path.join(temp_dir, "update.zip")
     
     try:
+        import aiohttp
         # Download
         print(f"Updater: Downloading from {asset_to_download}...")
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, urllib.request.urlretrieve, asset_to_download, zip_path)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(asset_to_download) as response:
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded = 0
+                with open(zip_path, 'wb') as f:
+                    async for chunk in response.content.iter_chunked(16384):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            pct = (downloaded / total_size) * 100
+                            prog_bar['value'] = pct
+                            pct_lbl.config(text=f"{int(pct)}%")
+                            
+        lbl.config(text="Extracting update...")
+        await asyncio.sleep(0.1)
         
         # Extract
         print("Updater: Extracting...")
