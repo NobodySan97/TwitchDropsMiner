@@ -56,14 +56,47 @@ async def check_for_updates(gui):
         if not assets:
             return
 
-        # Simple prompt for the user
-        def prompt_update():
-            return messagebox.askyesno(
-                "Update Available", 
-                f"A new development build is available (commit: {remote_sha or 'unknown'}).\nDo you want to update now?"
-            )
+        # Simple prompt for the user (non-blocking for asyncio)
+        async def prompt_update_async():
+            gui.grab_attention(sound=True)
+            import tkinter as tk
+            from tkinter import ttk
+            
+            result = False
+            event = asyncio.Event()
+            
+            def on_yes():
+                nonlocal result
+                result = True
+                event.set()
+                
+            def on_no():
+                event.set()
+                
+            dialog = tk.Toplevel(gui._root)
+            dialog.title("Update Available")
+            dialog.geometry("380x150")
+            dialog.resizable(False, False)
+            dialog.geometry("+%d+%d" % (gui._root.winfo_x() + 50, gui._root.winfo_y() + 50))
+            dialog.transient(gui._root)
+            dialog.grab_set()
+            dialog.protocol("WM_DELETE_WINDOW", on_no)
+            
+            msg = f"A new development build is available (commit: {remote_sha or 'unknown'}).\nDo you want to update now?"
+            lbl = ttk.Label(dialog, text=msg, justify="center")
+            lbl.pack(pady=20)
+            
+            btn_frame = ttk.Frame(dialog)
+            btn_frame.pack(pady=10)
+            
+            ttk.Button(btn_frame, text="Yes", command=on_yes).pack(side="left", padx=10)
+            ttk.Button(btn_frame, text="No", command=on_no).pack(side="right", padx=10)
+            
+            await event.wait()
+            dialog.destroy()
+            return result
         
-        wants_update = prompt_update()
+        wants_update = await prompt_update_async()
         if wants_update:
             await perform_update(gui, assets)
 
