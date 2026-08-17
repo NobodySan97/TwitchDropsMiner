@@ -146,7 +146,15 @@ async def perform_update(assets):
                     pass
             os.rename(current_exe, old_exe)
             shutil.copy2(new_exe, current_exe)
-            os.startfile(current_exe)
+            
+            # Clean PyInstaller environment variables so the new process doesn't think it's a child worker
+            env = os.environ.copy()
+            env.pop('_MEIPASS2', None)
+            for k in list(env.keys()):
+                if k.startswith('_PYI_'):
+                    env.pop(k)
+                    
+            subprocess.Popen([current_exe], env=env, creationflags=0x00000008) # DETACHED_PROCESS
             sys.exit(0)
         else:
             # Linux: rename old, copy new, restart
