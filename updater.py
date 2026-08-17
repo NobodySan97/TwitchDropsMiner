@@ -137,17 +137,16 @@ async def perform_update(assets):
         current_exe = sys.executable
         
         if system == "windows":
-            # Use batch script to replace file
-            bat_path = os.path.join(tempfile.gettempdir(), "tdm_update.bat")
-            with open(bat_path, "w") as f:
-                f.write(f'''@echo off
-timeout /t 2 /nobreak > NUL
-del "{current_exe}"
-copy "{new_exe}" "{current_exe}"
-"{current_exe}"
-del "%~f0"
-''')
-            subprocess.Popen([bat_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            # Rename running executable to .old, copy new one, and start it
+            old_exe = current_exe + ".old"
+            if os.path.exists(old_exe):
+                try:
+                    os.remove(old_exe)
+                except:
+                    pass
+            os.rename(current_exe, old_exe)
+            shutil.copy2(new_exe, current_exe)
+            os.startfile(current_exe)
             sys.exit(0)
         else:
             # Linux: rename old, copy new, restart
