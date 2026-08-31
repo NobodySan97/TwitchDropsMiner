@@ -253,8 +253,11 @@ class Websocket:
                 raise WebsocketClosed(received=False)
             ws_logger.debug(f"Websocket[{self._idx}] received: {raw_message}")
             if raw_message.type is WSMsgType.TEXT:
-                message: JsonType = json.loads(raw_message.data)
-                messages.append(message)
+                try:
+                    message: JsonType = json.loads(raw_message.data)
+                    messages.append(message)
+                except json.JSONDecodeError:
+                    ws_logger.warning(f"Websocket[{self._idx}] received malformed JSON: {raw_message.data}")
             elif raw_message.type is WSMsgType.CLOSE:
                 raise WebsocketClosed(received=True)
             elif raw_message.type is WSMsgType.CLOSED:
@@ -271,10 +274,13 @@ class Websocket:
 
     def _handle_message(self, message):
         # request the assigned topic to process the response
-        topic = self.topics.get(message["data"]["topic"])
-        if topic is not None:
-            # use a task to not block the websocket
-            asyncio.create_task(topic(json.loads(message["data"]["message"])))
+        try:
+            topic = self.topics.get(message["data"]["topic"])
+            if topic is not None:
+                payload = json.loads(message["data"]["message"])
+                asyncio.create_task(topic(payload))
+        except (KeyError, json.JSONDecodeError) as exc:
+            ws_logger.warning(f"Websocket[{self._idx}] failed to parse topic message: {exc}")
 
     async def _handle_recv(self):
         """
@@ -286,15 +292,18 @@ class Websocket:
             await self._gather_recv(messages, timeout=0.5)
         # process them
         for message in messages:
-            msg_type = message["type"]
+            msg_type = message.get("type")
             if msg_type == "MESSAGE":
                 self._handle_message(message)
             elif msg_type == "PONG":
                 # move the timestamp to something much later
                 self._max_pong = self._next_ping
             elif msg_type == "RESPONSE":
-                # no special handling for these (for now)
-                pass
+                if message.get("error"):
+                    ws_logger.warning(f"Websocket[{self._idx}] PubSub error: {message['error']}")
+                    if message["error"] in ("ERR_BADAUTH", "ERR_INVALID_AUTH"):
+                        self._twitch._auth_state.invalidate()
+                        self.request_reconnect()
             elif msg_type == "RECONNECT":
                 # We've received a reconnect request
                 ws_logger.warning(f"Websocket[{self._idx}] requested reconnect.")

@@ -164,9 +164,8 @@ if __name__ == "__main__":
         if sys.platform == "linux":
             loop.add_signal_handler(signal.SIGINT, lambda *_: client.gui.close())
             loop.add_signal_handler(signal.SIGTERM, lambda *_: client.gui.close())
+        update_task = loop.create_task(updater.check_for_updates(client.gui))
         try:
-            # Create a background task for the updater so it doesn't block startup
-            loop.create_task(updater.check_for_updates(client.gui))
             await client.run()
         except CaptchaRequired:
             exit_status = 1
@@ -181,6 +180,8 @@ if __name__ == "__main__":
             if sys.platform == "linux":
                 loop.remove_signal_handler(signal.SIGINT)
                 loop.remove_signal_handler(signal.SIGTERM)
+            if not update_task.done():
+                update_task.cancel()
             client.print(_("gui", "status", "exiting"))
             await client.shutdown()
         if not client.gui.close_requested:

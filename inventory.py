@@ -145,8 +145,7 @@ class BaseDrop:
         # "If you are unable to claim the Drop in time, you will be able to claim it
         # from the Drops Inventory page until 24 hours after the Drops campaign has ended."
         return (
-            self.claim_id is not None
-            and not self.is_claimed
+            not self.is_claimed
             and datetime.now(timezone.utc) < self.campaign.ends_at + timedelta(hours=24)
         )
 
@@ -165,6 +164,8 @@ class BaseDrop:
         return delim.join(benefit.name for benefit in self.benefits)
 
     async def claim(self) -> bool:
+        if self.claim_id is None:
+            await self.generate_claim()
         result = await self._claim()
         if result:
             self.is_claimed = result
@@ -241,6 +242,13 @@ class TimedDrop(BaseDrop):
         else:
             minutes = ''
         return f"Drop({self.rewards_text()}{minutes}{additional})"
+
+    @property
+    def can_claim(self) -> bool:
+        return (
+            super().can_claim
+            and self.current_minutes >= self.required_minutes
+        )
 
     @property
     def current_minutes(self) -> int:

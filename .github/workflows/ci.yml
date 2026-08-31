@@ -58,9 +58,8 @@ jobs:
 
       - name: Append git revision to project version
         run: |
-          (Get-Content version.py) `
-          -Replace '^__version__\s*=\s*"[^"]+', "`$0.${{steps.vars.outputs.sha_short}}" |`
-          Out-File version.py
+          $content = (Get-Content version.py) -Replace '^__version__\s*=\s*"[^"]+', "`$0.${{steps.vars.outputs.sha_short}}"
+          Set-Content -Path version.py -Value $content -Encoding utf8
 
       # Ensure Python version
       - name: Set up Python

@@ -158,7 +158,7 @@ class PlaceholderEntry(ttk.Entry):
         self._store_option(options, "placeholder", "_ph_text", remove=True)
         self._store_option(options, "prefill", "_prefill", remove=True)
         self._store_option(options, "placeholdercolor", "_ph_color", remove=True)
-        return super().configure(**kwargs)
+        return super().configure(**options)
 
     def config(self, *args: Any, **kwargs: Any) -> Any:
         # because 'config = configure' makes mypy complain
@@ -273,6 +273,7 @@ class PaddedListbox(tk.Listbox):
 
     def configure_theme(self, *, bg: str, fg: str, sel_bg: str, sel_fg: str):
         # Apply basic colors for dark/light mode
+        self._frame.config(background=bg)
         super().config(bg=bg, fg=fg, selectbackground=sel_bg, selectforeground=sel_fg)
 
 
@@ -325,10 +326,10 @@ class MouseOverLabel(ttk.Label):
                 options["text"] = self._alt_text
             if events_change:
                 if self._bind_enter is not None:
-                    self.unbind(self._bind_enter)
+                    self.unbind("<Enter>", self._bind_enter)
                     self._bind_enter = None
                 if self._bind_leave is not None:
-                    self.unbind(self._bind_leave)
+                    self.unbind("<Leave>", self._bind_leave)
                     self._bind_leave = None
                 if self._org_text and self._alt_text:
                     if self._alt_reverse:
@@ -347,12 +348,9 @@ class MouseOverLabel(ttk.Label):
 class LinkLabel(ttk.Label):
     def __init__(self, *args, link: str, **kwargs) -> None:
         self._link: str = link
-        # style provides font and foreground color
-        if "style" not in kwargs:
-            kwargs["style"] = "Link.TLabel"
-        elif not kwargs["style"]:
-            super().__init__(*args, **kwargs)
-            return
+        style = kwargs.pop("style", "Link.TLabel")
+        if style:
+            kwargs["style"] = style
         if "cursor" not in kwargs:
             kwargs["cursor"] = "hand2"
         if "padding" not in kwargs:
@@ -410,10 +408,9 @@ class SelectCombobox(ttk.Combobox):
         **kwargs,
     ) -> None:
         if width is None:
-            font = Font(master, ttk.Style().lookup("TCombobox", "font"))
-            # font.measure returns width in pixels, using '0' as the average character,
-            # which is 6 pixels wide. We can convert it to width in characters by dividing.
-            width = max(font.measure(v) // 6 + 1 for v in values)
+            font_name = ttk.Style().lookup("TCombobox", "font")
+            font = Font(master, font_name) if font_name else nametofont("TkDefaultFont")
+            width = max((font.measure(v) // 6 + 1 for v in values), default=10)
         width += width_offset
         super().__init__(
             master,
@@ -581,9 +578,9 @@ class LoginForm:
                 self._token_entry.get().strip(),
             )
             # basic input data validation: 3-25 characters in length, only ascii and underscores
-            if (
-                not 3 <= len(login_data.username) <= 25
-                and re.match(r'^[a-zA-Z0-9_]+$', login_data.username)
+            if not (
+                3 <= len(login_data.username) <= 25
+                and bool(re.match(r'^[a-zA-Z0-9_]+$', login_data.username))
             ):
                 self.clear(login=True)
                 continue
@@ -824,14 +821,22 @@ class ConsoleOutput:
         xscroll.grid(column=0, row=1, sticky="ew")
         yscroll.grid(column=1, row=0, sticky="ns")
 
+    MAX_LINES: int = 2000
+
     def print(self, message: str):
-        stamp = datetime.now().strftime("%X")
-        if '\n' in message:
-            message = message.replace('\n', f"\n{stamp}: ")
-        self._text.config(state="normal")
-        self._text.insert("end", f"{stamp}: {message}\n")
-        self._text.see("end")  # scroll to the newly added line
-        self._text.config(state="disabled")
+        try:
+            stamp = datetime.now().strftime("%X")
+            if '\n' in message:
+                message = message.replace('\n', f"\n{stamp}: ")
+            self._text.config(state="normal")
+            self._text.insert("end", f"{stamp}: {message}\n")
+            num_lines = int(float(self._text.index("end-1c").split('.')[0]))
+            if num_lines > self.MAX_LINES:
+                self._text.delete("1.0", f"{num_lines - self.MAX_LINES}.0")
+            self._text.see("end")  # scroll to the newly added line
+            self._text.config(state="disabled")
+        except tk.TclError:
+            pass
 
     def configure_theme(self, *, bg: str, fg: str, sel_bg: str, sel_fg: str):
         # Apply colors to the Tk Text widget used for console output
@@ -1131,7 +1136,8 @@ class TrayIcon:
             title_parts[1] = self._shorten(title_parts[1], missing_len, min_len)
             missing_len = len(''.join(title_parts)) - max_len
         if missing_len > 0:
-            raise MinerException(f"Title couldn't be shortened: {''.join(title_parts)}")
+            full_title = ''.join(title_parts)
+            return full_title[:max_len - 3] + "..."
         return ''.join(title_parts)
 
     def _start(self):
@@ -1548,8 +1554,14 @@ class InventoryOverview:
 def proxy_validate(entry: PlaceholderEntry, settings: Settings) -> bool:
     raw_url = entry.get().strip()
     entry.replace(raw_url)
-    url = URL(raw_url)
-    valid = url.host is not None and url.port is not None
+    if not raw_url:
+        settings.proxy = URL()
+        return True
+    try:
+        url = URL(raw_url)
+        valid = url.host is not None and url.port is not None
+    except ValueError:
+        valid = False
     if not valid:
         entry.clear()
         url = URL()
@@ -2636,8 +2648,8 @@ class GUIManager:
         )
         s.map(
             "Treeview",
-            background=[("selected", sel_bg)],
-            foreground=[("selected", sel_fg)],
+            background=[("selected", sel_bg)] + self._fixed_map("background"),
+            foreground=[("selected", sel_fg)] + self._fixed_map("foreground"),
         )
         s.configure("Treeview.Heading", background=header, foreground=fg, bordercolor=border)
         # Progressbar

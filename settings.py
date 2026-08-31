@@ -99,3 +99,4 @@ class Settings:
     def save(self, *, force: bool = False) -> None:
         if self._altered or force:
             json_save(SETTINGS_PATH, self._settings, sort=True)
+            self._altered = False

@@ -43,7 +43,7 @@ class Stream:
         self.title: str = title
         self._stream_url: URLType | None = None
 
-    @cached_property
+    @property
     def _watch_payload(self) -> list[JsonType]:
         return [
             {
@@ -66,13 +66,13 @@ class Stream:
             }
         ]
 
-    @cached_property
+    @property
     def spade_payload(self) -> JsonType:
         return {
             "data": (b64encode(json_minify(self._watch_payload).encode("utf8"))).decode("utf8")
         }
 
-    @cached_property
+    @property
     def gql_payload(self) -> GQLQuery:
         return GQLQuery(
             (
@@ -388,9 +388,11 @@ class Channel:
         The 'stream-up' event is sent before the stream actually goes online,
         so just wait a bit and check if it's actually online by then.
         """
-        await asyncio.sleep(ONLINE_DELAY.total_seconds())
-        self._pending_stream_up = None  # for 'display' to work properly
-        await self.update_stream()
+        try:
+            await asyncio.sleep(ONLINE_DELAY.total_seconds())
+            await self.update_stream()
+        finally:
+            self._pending_stream_up = None
 
     def check_online(self):
         """
@@ -484,14 +486,16 @@ class Channel:
     async def send_watch(self) -> bool:
         if self._stream is None:
             return False
-        if self._spade_url is None:
-            self._spade_url = await self.get_spade_url()
         try:
+            if self._spade_url is None:
+                self._spade_url = await self.get_spade_url()
             async with self._twitch.request(
                 "POST", self._spade_url, data=self._stream.spade_payload
             ) as response:
                 return response.status == 204
-        except RequestException:
+        except (RequestException, MinerException) as exc:
+            logger.debug(f"Failed to send watch payload for {self.name}: {exc}")
+            self._spade_url = None
             return False
 
     # NOTE: This is currently unused.

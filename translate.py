@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import abc
+import copy
 from typing import Any, TypedDict, TYPE_CHECKING
 
 from exceptions import MinerException
@@ -452,8 +453,9 @@ default_translation: Translation = {
 class Translator:
     def __init__(self) -> None:
         self._langs: list[str] = []
-        # start with (and always copy) the default translation
-        self._translation: Translation = default_translation.copy()
+        LANG_PATH.mkdir(parents=True, exist_ok=True)
+        # start with (and always deepcopy) the default translation
+        self._translation: Translation = copy.deepcopy(default_translation)
         # if we're in dev, update the template English.json file
         if not IS_PACKAGED:
             default_langpath = LANG_PATH.joinpath(f"{DEFAULT_LANG}.json")
@@ -483,28 +485,45 @@ class Translator:
             return
         elif language == DEFAULT_LANG:
             # default language selected - use the memory value
-            self._translation = default_translation.copy()
+            self._translation = copy.deepcopy(default_translation)
         else:
-            self._translation = json_load(
-                LANG_PATH.joinpath(f"{language}.json"), default_translation
-            )
-            if "language_name" in self._translation:
-                raise ValueError("Translations cannot define 'language_name'")
+            try:
+                self._translation = json_load(
+                    LANG_PATH.joinpath(f"{language}.json"), default_translation
+                )
+                if "language_name" in self._translation:
+                    raise ValueError("Translations cannot define 'language_name'")
+            except Exception:
+                self._translation = copy.deepcopy(default_translation)
+                language = DEFAULT_LANG
         self._translation["language_name"] = language
 
     def __call__(self, *path: str) -> str:
         if not path:
             raise ValueError("Language path expected")
-        v: Any = self._translation
+        
+        # 1. Try current translation
         try:
+            v: Any = self._translation
             for key in path:
                 v = v[key]
-        except KeyError:
-            # this can only really happen for the default translation
-            raise MinerException(
-                f"{self.current} translation is missing the '{' -> '.join(path)}' translation key"
-            )
-        return v
+            if isinstance(v, str):
+                return v
+        except (KeyError, TypeError):
+            pass
+
+        # 2. Fall back to default (English) translation
+        try:
+            v = default_translation
+            for key in path:
+                v = v[key]
+            if isinstance(v, str):
+                return v
+        except (KeyError, TypeError):
+            pass
+
+        # 3. Fall back to the leaf key to prevent crash
+        return path[-1]
 
 
 _ = Translator()

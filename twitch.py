@@ -1031,6 +1031,7 @@ class Twitch:
         )
 
     def watch(self, channel: Channel, *, update_status: bool = True):
+        prev_channel = self.watching_channel.get_with_default(None)
         self.gui.tray.change_icon("active")
         self.gui.channels.set_watching(channel)
         self.watching_channel.set(channel)
@@ -1038,6 +1039,8 @@ class Twitch:
             status_text = _("status", "watching").format(channel=channel.name)
             self.print(status_text)
             self.gui.status.update(status_text)
+        if prev_channel is None or prev_channel != channel:
+            self.restart_watching()
 
     def stop_watching(self):
         self.gui.clear_drop()
@@ -1341,16 +1344,23 @@ class Twitch:
                                     delay = 5
                                 force_retry = True
                                 break
-                            elif error_dict["message"] == "server error":
+                            elif error_dict.get("message") == "server error":
                                 # nullify the key the error path points to
-                                data_dict: JsonType = response_json["data"]
-                                path: list[str] = error_dict.get("path", [])
-                                for key in path[:-1]:
-                                    data_dict = data_dict[key]
-                                data_dict[path[-1]] = None
+                                data_dict = response_json.get("data")
+                                path = error_dict.get("path")
+                                if data_dict is not None and isinstance(data_dict, dict) and path:
+                                    curr = data_dict
+                                    for key in path[:-1]:
+                                        if isinstance(curr, dict) and key in curr:
+                                            curr = curr[key]
+                                        else:
+                                            break
+                                    else:
+                                        if isinstance(curr, dict) and path[-1] in curr:
+                                            curr[path[-1]] = None
                                 break
                             elif (
-                                error_dict["message"] in (
+                                error_dict.get("message") in (
                                     "service timeout",
                                     "service unavailable",
                                     "context deadline exceeded",
@@ -1362,9 +1372,15 @@ class Twitch:
                         raise GQLException(response_json['errors'])
                 # Other error handling
                 elif "error" in response_json:
-                    raise GQLException(
-                        f"{response_json['error']}: {response_json['message']}"
-                    )
+                    if response_json.get("status") == 401 or "Unauthorized" in str(response_json.get("error")):
+                        logger.warning("OAuth token expired during GQL request. Re-authenticating...")
+                        self._auth_state.invalidate()
+                        await self.get_auth()
+                        force_retry = True
+                    else:
+                        raise GQLException(
+                            f"{response_json['error']}: {response_json.get('message', '')}"
+                        )
                 if force_retry:
                     break
             else:
@@ -1487,6 +1503,7 @@ class Twitch:
         campaigns.sort(key=lambda c: c.eligible, reverse=True)
 
         self._drops.clear()
+        self._campaigns.clear()
         self.gui.inv.clear()
         self.inventory.clear()
         self._mnt_triggers.clear()
@@ -1541,14 +1558,19 @@ class Twitch:
         if watching_channel is None:
             # if we aren't watching anything, we can't earn any drops
             return None
-        campaigns: list[DropsCampaign] = []
-        for campaign in self.inventory:
-            if campaign.can_earn(watching_channel):
-                campaigns.append(campaign)
-        if campaigns:
+        campaigns: list[DropsCampaign] = [
+            c for c in self.inventory if c.can_earn(watching_channel)
+        ]
+        if not campaigns:
+            return None
+        priority_mode = self.settings.priority_mode
+        if priority_mode is PriorityMode.ENDING_SOONEST:
+            campaigns.sort(key=lambda c: c.ends_at)
+        elif priority_mode is PriorityMode.LOW_AVBL_FIRST:
+            campaigns.sort(key=lambda c: c.availability)
+        else:
             campaigns.sort(key=lambda c: c.remaining_minutes)
-            return campaigns[0]
-        return None
+        return campaigns[0]
 
     async def get_live_streams(
         self, game: Game, *, limit: int = 20, drops_enabled: bool = True

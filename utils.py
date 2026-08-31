@@ -71,14 +71,16 @@ def format_traceback(exc: BaseException, **kwargs: Any) -> str:
 
 
 def lock_file(path: Path) -> tuple[bool, io.TextIOWrapper]:
-    file = path.open('w', encoding="utf8")
-    file.write('ツ')
-    file.flush()
+    file = path.open('a+', encoding="utf8")
     if sys.platform == "win32":
         import msvcrt
         try:
-            # we need to lock at least one byte for this to work
-            msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, max(path.stat().st_size, 1))
+            file.seek(0)
+            if path.stat().st_size == 0:
+                file.write('ツ')
+                file.flush()
+            file.seek(0)
+            msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
         except Exception:
             return False, file
         return True, file
@@ -249,13 +251,16 @@ def json_load(path: Path, defaults: _JSON_T, *, merge: bool = True) -> _JSON_T:
         try:
             with new_path.open('r', encoding="utf8") as file:
                 combined = _remove_missing(json.load(file, object_hook=_deserialize))
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, OSError):
             # remove invalid file
-            new_path.unlink()
+            new_path.unlink(missing_ok=True)
     # try the old file
     if combined is None and path.exists():
-        with path.open('r', encoding="utf8") as file:
-            combined = _remove_missing(json.load(file, object_hook=_deserialize))
+        try:
+            with path.open('r', encoding="utf8") as file:
+                combined = _remove_missing(json.load(file, object_hook=_deserialize))
+        except (json.JSONDecodeError, OSError):
+            pass
     # handle defaults and merging
     if combined is None:
         combined = dict(defaults)  # always make a copy of defaults
@@ -268,7 +273,20 @@ def json_save(path: Path, contents: Mapping[Any, Any], *, sort: bool = False) ->
     new_path: Path = path.with_name(f"{path.name}.new")
     with new_path.open('w', encoding="utf8") as file:
         json.dump(contents, file, default=_serialize, sort_keys=sort, indent=4)
-    new_path.replace(path)
+    for _ in range(5):
+        try:
+            new_path.replace(path)
+            break
+        except PermissionError:
+            import time
+            time.sleep(0.05)
+    else:
+        import shutil
+        try:
+            shutil.copyfile(new_path, path)
+            new_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def webopen(url: URL | str):
