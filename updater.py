@@ -21,11 +21,35 @@ def _is_hex_hash(s: str | None) -> bool:
     return bool(s and re.fullmatch(r"[0-9a-fA-F]{7,40}", s))
 
 
+def cleanup_old_executables():
+    """
+    Cleans up any leftover .old.* files from previous update cycles.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    try:
+        exe_dir = os.path.dirname(sys.executable)
+        exe_name = os.path.basename(sys.executable)
+        for item in os.listdir(exe_dir):
+            if item.startswith(f"{exe_name}.old.") or item.startswith(f"{exe_name}.old"):
+                full_path = os.path.join(exe_dir, item)
+                try:
+                    os.remove(full_path)
+                    print(f"Updater: Cleaned up old executable: {item}")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 async def check_for_updates(gui):
     # Only run in compiled PyInstaller mode
     if not getattr(sys, "frozen", False):
         print("Updater: Not running in compiled mode, skipping update check.")
         return
+
+    # Clean up any leftover .old binaries from previous update now that old process is dead
+    cleanup_old_executables()
 
     try:
         req = urllib.request.Request(API_URL, headers={"User-Agent": "TwitchDropsMiner-Updater"})
