@@ -49,6 +49,7 @@ from constants import (
     OUTPUT_FORMATTER,
     State,
     PriorityMode,
+    LOG_PATH,
 )
 if sys.platform == "win32":
     from registry import RegistryKey, ValueType, ValueNotFound
@@ -824,18 +825,36 @@ class ConsoleOutput:
     MAX_LINES: int = 2000
 
     def print(self, message: str):
+        stamp = datetime.now().strftime("%X")
+        if '\n' in message:
+            message_gui = message.replace('\n', f"\n{stamp}: ")
+        else:
+            message_gui = message
         try:
-            stamp = datetime.now().strftime("%X")
-            if '\n' in message:
-                message = message.replace('\n', f"\n{stamp}: ")
             self._text.config(state="normal")
-            self._text.insert("end", f"{stamp}: {message}\n")
+            self._text.insert("end", f"{stamp}: {message_gui}\n")
             num_lines = int(float(self._text.index("end-1c").split('.')[0]))
             if num_lines > self.MAX_LINES:
                 self._text.delete("1.0", f"{num_lines - self.MAX_LINES}.0")
             self._text.see("end")  # scroll to the newly added line
             self._text.config(state="disabled")
         except tk.TclError:
+            pass
+
+        # Always save to log.txt on disk with timestamp and 10MB auto-rotation
+        try:
+            if LOG_PATH.exists() and LOG_PATH.stat().st_size > 10 * 1024 * 1024:
+                old_log = LOG_PATH.with_suffix(".txt.old")
+                try:
+                    if old_log.exists():
+                        old_log.unlink()
+                    LOG_PATH.rename(old_log)
+                except Exception:
+                    pass
+            date_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(LOG_PATH, "a", encoding="utf8") as f:
+                f.write(f"{date_stamp}: {message}\n")
+        except Exception:
             pass
 
     def configure_theme(self, *, bg: str, fg: str, sel_bg: str, sel_fg: str):
