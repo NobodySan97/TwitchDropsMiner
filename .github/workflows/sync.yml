@@ -49,4 +49,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Avvia manualmente la build visto che GITHUB_TOKEN non avvia altri workflow con il push
-          gh workflow run ci.yml --ref master
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref master
