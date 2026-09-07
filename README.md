@@ -1,5 +1,17 @@
 # Twitch Drops Miner (NobodySan97 Fork)
 
+<p align="left">
+  <a href="https://github.com/NobodySan97/TwitchDropsMiner/releases">
+    <img src="https://img.shields.io/github/downloads/NobodySan97/TwitchDropsMiner/total?logo=github&style=for-the-badge&color=2ea44f" alt="Total Downloads" />
+  </a>
+  <a href="https://github.com/NobodySan97/TwitchDropsMiner/releases">
+    <img src="https://img.shields.io/github/v/release/NobodySan97/TwitchDropsMiner?include_prereleases&logo=github&style=for-the-badge&color=007ec6" alt="Latest Release" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License: MIT" />
+  </a>
+</p>
+
 > [!NOTE]
 > **This repository is an enhanced fork of [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner)**.  
 > All core architecture and credit belongs to **[DevilXD](https://github.com/DevilXD)**.  
@@ -34,7 +46,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 
 ### Usage:
 
-- Download and unzip [the latest release](https://github.com/NobodySan97/TwitchDropsMiner/releases) - it's recommended to keep it in the folder it comes in.
+- Download and unzip [the latest release](https://github.com/NobodySan97/TwitchDropsMiner/releases) [![Downloads](https://img.shields.io/github/downloads/NobodySan97/TwitchDropsMiner/total?style=flat-square&color=2ea44f)](https://github.com/NobodySan97/TwitchDropsMiner/releases) - it's recommended to keep it in the folder it comes in.
 - Run it and login/connect the miner to your Twitch account by using the in-app login form.
 - After a successful login, the app should fetch a list of all available campaigns and games you can mine drops for - you can then select and add games of choice to the Priority List available on the Settings tab, and then press on the `Reload` button to start processing. It will fetch a list of all applicable streams it can watch, and start mining right away. You can also manually switch to a different channel as needed.
 - If you wish to keep the miner occupied with mining anything it can, beyond what you've selected via the Priority List, you can use the Priority Mode setting to specify the mining order for the rest of the games.
