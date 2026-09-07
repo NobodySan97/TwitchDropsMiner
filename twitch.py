@@ -1362,6 +1362,7 @@ class Twitch:
                             elif (
                                 error_dict.get("message") in (
                                     "service timeout",
+                                    "request cancelled",
                                     "service unavailable",
                                     "context deadline exceeded",
                                 )
