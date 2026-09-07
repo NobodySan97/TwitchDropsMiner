@@ -164,7 +164,7 @@ if __name__ == "__main__":
         if sys.platform == "linux":
             loop.add_signal_handler(signal.SIGINT, lambda *_: client.gui.close())
             loop.add_signal_handler(signal.SIGTERM, lambda *_: client.gui.close())
-        update_task = loop.create_task(updater.check_for_updates(client.gui))
+        update_task = loop.create_task(updater.run_update_loop(client.gui))
         try:
             await client.run()
         except CaptchaRequired:

@@ -42,6 +42,9 @@ def cleanup_old_executables():
         pass
 
 
+_declined_sha: str | None = None
+
+
 async def check_for_updates(gui):
     # Only run in compiled PyInstaller mode
     if not getattr(sys, "frozen", False):
@@ -68,6 +71,11 @@ async def check_for_updates(gui):
                 if len(raw_sha) >= 7:
                     remote_sha = raw_sha[:7].lower()
                 break
+
+        # If user previously declined this specific build during this session, skip
+        global _declined_sha
+        if remote_sha and remote_sha == _declined_sha:
+            return
 
         # Compare with local version (e.g. "16.dev.abcdef1")
         from version import __version__
@@ -138,11 +146,31 @@ async def check_for_updates(gui):
         wants_update = await prompt_update_async()
         if wants_update:
             await perform_update(gui, assets)
+        else:
+            _declined_sha = remote_sha
 
     except asyncio.CancelledError:
         pass
     except Exception as e:
         print(f"Updater: Failed to check for updates: {e}")
+
+
+async def run_update_loop(gui, interval_seconds: int = 3600):
+    """
+    Runs an update check immediately on startup, and then periodically
+    every `interval_seconds` (default: 1 hour) while the application is active.
+    """
+    # Initial check on startup
+    await check_for_updates(gui)
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            await check_for_updates(gui)
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:
+            print(f"Updater: Error in periodic update loop: {exc}")
 
 
 async def perform_update(gui, assets):
