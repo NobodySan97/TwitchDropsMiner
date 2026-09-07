@@ -2143,27 +2143,41 @@ class HelpTab:
         LinkLabel(
             about, link="https://github.com/DevilXD", text="DevilXD"
         ).grid(column=1, row=0, sticky="nsew")
-        # About - repo link
-        ttk.Label(about, text="Repository: ", anchor="e").grid(column=0, row=1, sticky="nsew")
+        # About - fork & auto-updater
+        ttk.Label(
+            about, text="Fork & Auto-Updater: ", anchor="e"
+        ).grid(column=0, row=1, sticky="nsew")
+        LinkLabel(
+            about, link="https://github.com/NobodySan97", text="NobodySan97"
+        ).grid(column=1, row=1, sticky="nsew")
+        # About - fork repo link
+        ttk.Label(about, text="Repository (Fork): ", anchor="e").grid(column=0, row=2, sticky="nsew")
+        LinkLabel(
+            about,
+            link="https://github.com/NobodySan97/TwitchDropsMiner",
+            text="https://github.com/NobodySan97/TwitchDropsMiner",
+        ).grid(column=1, row=2, sticky="nsew")
+        # About - original upstream link
+        ttk.Label(about, text="Original Upstream: ", anchor="e").grid(column=0, row=3, sticky="nsew")
         LinkLabel(
             about,
             link="https://github.com/DevilXD/TwitchDropsMiner",
             text="https://github.com/DevilXD/TwitchDropsMiner",
-        ).grid(column=1, row=1, sticky="nsew")
+        ).grid(column=1, row=3, sticky="nsew")
         # About - donate
         ttk.Separator(
             about, orient="horizontal"
-        ).grid(column=0, row=2, columnspan=3, sticky="nsew")
-        ttk.Label(about, text="Donate: ", anchor="e").grid(column=0, row=3, sticky="nsew")
+        ).grid(column=0, row=4, columnspan=3, sticky="nsew")
+        ttk.Label(about, text="Donate (DevilXD): ", anchor="e").grid(column=0, row=5, sticky="nsew")
         LinkLabel(
             about,
             link="https://www.buymeacoffee.com/DevilXD",
             text=(
                 "If you like the application and found it useful, "
-                "please consider donating a small amount of money to support me. Thank you!"
+                "please consider donating a small amount of money to support DevilXD. Thank you!"
             ),
             wraplength=self.WIDTH,
-        ).grid(column=1, row=3, sticky="nsew")
+        ).grid(column=1, row=5, sticky="nsew")
         # Useful links
         links = ttk.LabelFrame(
             center_frame, padding=(4, 0, 4, 4), text=_("gui", "help", "links", "name")
@@ -2179,6 +2193,16 @@ class HelpTab:
             link="https://www.twitch.tv/drops/campaigns",
             text=_("gui", "help", "links", "campaigns"),
         ).grid(column=0, row=1, sticky="nsew")
+        LinkLabel(
+            links,
+            link="https://github.com/NobodySan97/TwitchDropsMiner/releases",
+            text="Releases & Updates (GitHub)",
+        ).grid(column=0, row=2, sticky="nsew")
+        LinkLabel(
+            links,
+            link="https://github.com/NobodySan97/TwitchDropsMiner/issues",
+            text="Report an Issue (GitHub)",
+        ).grid(column=0, row=3, sticky="nsew")
         # How It Works
         howitworks = ttk.LabelFrame(
             center_frame, padding=(4, 0, 4, 4), text=_("gui", "help", "how_it_works")

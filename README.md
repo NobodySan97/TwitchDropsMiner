@@ -1,4 +1,18 @@
-# Twitch Drops Miner
+# Twitch Drops Miner (NobodySan97 Fork)
+
+> [!NOTE]
+> **This repository is an enhanced fork of [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner)**.  
+> All core architecture and credit belongs to **[DevilXD](https://github.com/DevilXD)**.  
+>
+> ### 🚀 Key Enhancements in this Fork:
+> - 🔄 **Built-in Auto-Updater**: Automatic update checks on startup and periodically every 1 hour in the background. If minimized to the system tray, it restores the window, notifies you with sound, and downloads with an interactive progress bar before restarting seamlessly.
+> - ⚡ **Continuous Upstream Synchronization**: Automatically pulls and merges the latest updates from DevilXD every hour (ensuring Twitch GraphQL hashes and API changes are always up to date).
+> - 🛡️ **Stability & Engine Audit Fixes**:
+>   - **Dynamic Watch Telemetry**: Dynamic `client_time` and payloads to prevent bot detection and stalled progress.
+>   - **Reliable Drop Claiming**: Accurate claim eligibility checks preventing false claims on unearned drops.
+>   - **Session Re-authentication**: Automatic 401 token invalidation and refresh for uninterrupted 24/7 farming.
+>   - **GUI Memory Protections**: Fixed listener leaks, theme resets, and bounded console buffers.
+>   - **Automatic Disk Logging**: Automatic real-time saving to `log.txt` with 10MB auto-rotation.
 
 This application allows you to AFK mine timed Twitch drops, without having to worry about switching channels when the one you were watching goes offline, claiming the drops, or even receiving the stream data itself. This helps you save on bandwidth and hassle.
 
@@ -8,6 +22,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 
 ### Features:
 
+- **Built-in Auto-Updater**: Keeps your miner updated automatically without manual downloads.
 - Stream-less drop mining - save on bandwidth.
 - Game priority and exclusion lists, allowing you to focus on mining what you want, in the order you want, and ignore what you don't want.
 - Sharded websocket connection, allowing for tracking up to `199` channels at the same time.
@@ -19,7 +34,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 
 ### Usage:
 
-- Download and unzip [the latest release](https://github.com/DevilXD/TwitchDropsMiner/releases) - it's recommended to keep it in the folder it comes in.
+- Download and unzip [the latest release](https://github.com/NobodySan97/TwitchDropsMiner/releases) - it's recommended to keep it in the folder it comes in.
 - Run it and login/connect the miner to your Twitch account by using the in-app login form.
 - After a successful login, the app should fetch a list of all available campaigns and games you can mine drops for - you can then select and add games of choice to the Priority List available on the Settings tab, and then press on the `Reload` button to start processing. It will fetch a list of all applicable streams it can watch, and start mining right away. You can also manually switch to a different channel as needed.
 - If you wish to keep the miner occupied with mining anything it can, beyond what you've selected via the Priority List, you can use the Priority Mode setting to specify the mining order for the rest of the games.
@@ -76,15 +91,13 @@ Every several seconds, the application pretends to watch a particular stream by 
 
 If you'd be interested in running the latest master from source or building your own executable, see the wiki page explaining how to do so: https://github.com/DevilXD/TwitchDropsMiner/wiki/Setting-up-the-environment,-building-and-running
 
-### Support
+### Support & Issues
 
-If you'd encounter any issues with the miner:
+- For issues relating to this fork, the auto-updater, or build problems: please [open an issue on NobodySan97/TwitchDropsMiner](https://github.com/NobodySan97/TwitchDropsMiner/issues).
+- For general questions and troubleshooting, consult the [upstream troubleshooting page](https://github.com/DevilXD/TwitchDropsMiner/wiki/Troubleshooting).
+- Original upstream repository: [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner).
 
-- Please see the [troubleshooting page](https://github.com/DevilXD/TwitchDropsMiner/wiki/Troubleshooting) for some common issues and their explanation.  
-- Please [search the issues page](https://github.com/DevilXD/TwitchDropsMiner/issues?q=sort%3Aupdated-desc%20is%3Aissue) to see if your issue hasn't been reported yet.  
-- If it's not been reported yet, feel free to open a new issue, describing your problem.
-
-If you like the application and found it useful, please consider donating a small amount of money to support me. Thank you!
+If you like the original application and found it useful, please consider donating to support the original creator **DevilXD**:
 
 <div align="center">
 
