@@ -82,7 +82,7 @@ class Websocket:
     async def start(self):
         async with self._state_lock:
             self.start_nowait()
-            await self.wait_until_connected()
+        await self.wait_until_connected()
 
     def start_nowait(self):
         if self._handle_task is None or self._handle_task.done():
@@ -99,7 +99,11 @@ class Websocket:
                 await ws.close()
             if self._handle_task is not None:
                 with suppress(asyncio.TimeoutError, asyncio.CancelledError):
-                    await asyncio.wait_for(self._handle_task, timeout=2)
+                    await asyncio.wait_for(asyncio.shield(self._handle_task), timeout=2)
+                if not self._handle_task.done():
+                    self._handle_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await self._handle_task
                 self._handle_task = None
             if remove:
                 self.topics.clear()
@@ -122,8 +126,10 @@ class Websocket:
             proxy = None
         for delay in backoff:
             try:
+                connect_time = time()
                 async with session.ws_connect(ws_url, proxy=proxy) as websocket:
                     yield websocket
+                if time() - connect_time > 30:
                     backoff.reset()
             except (
                 asyncio.TimeoutError,
@@ -141,7 +147,7 @@ class Websocket:
                 )
                 break
 
-    @task_wrapper(critical=True)
+    @task_wrapper
     async def _handle(self):
         # ensure we're logged in before connecting
         self.set_status(_("gui", "websocket", "initializing"))
@@ -172,20 +178,25 @@ class Websocket:
                     self._topics_changed.set()
                 # A reconnect was requested
             except WebsocketClosed as exc:
-                if exc.received:
-                    # server closed the connection, not us - reconnect
-                    ws_logger.warning(
-                        f"Websocket[{self._idx}] closed unexpectedly: {websocket.close_code}"
-                    )
-                elif self._closed.is_set():
+                if self._closed.is_set():
                     # we closed it - exit
                     ws_logger.info(f"Websocket[{self._idx}] stopped.")
                     self.set_status(_("gui", "websocket", "disconnected"))
                     return
+                elif exc.received:
+                    # server closed the connection, not us - reconnect
+                    ws_logger.warning(
+                        f"Websocket[{self._idx}] closed unexpectedly: {websocket.close_code}"
+                    )
             except Exception:
                 ws_logger.exception(f"Exception in Websocket[{self._idx}]")
+            if self._closed.is_set():
+                ws_logger.info(f"Websocket[{self._idx}] stopped.")
+                self.set_status(_("gui", "websocket", "disconnected"))
+                return
             self.set_status(_("gui", "websocket", "reconnecting"))
             ws_logger.warning(f"Websocket[{self._idx}] reconnecting...")
+            await asyncio.sleep(1)
 
     async def _handle_ping(self):
         now = time()
@@ -263,10 +274,12 @@ class Websocket:
             elif raw_message.type is WSMsgType.CLOSED:
                 raise WebsocketClosed(received=False)
             elif raw_message.type is WSMsgType.CLOSING:
-                pass  # skip these
+                raise WebsocketClosed(received=True)
             elif raw_message.type is WSMsgType.ERROR:
+                err_data = raw_message.data
+                err_msg = format_traceback(err_data) if isinstance(err_data, BaseException) else str(err_data)
                 ws_logger.error(
-                    f"Websocket[{self._idx}] error: {format_traceback(raw_message.data)}"
+                    f"Websocket[{self._idx}] error: {err_msg}"
                 )
                 raise WebsocketClosed()
             else:
@@ -337,9 +350,16 @@ class Websocket:
             message["nonce"] = create_nonce(CHARS_ASCII, 30)
         try:
             await ws.send_json(message, dumps=json_minify)
-        except aiohttp.ClientConnectionError:
+        except (aiohttp.ClientConnectionError, ConnectionResetError, RuntimeError):
             raise WebsocketClosed(received=False)
-        ws_logger.debug(f"Websocket[{self._idx}] sent: {message}")
+        if "data" in message and isinstance(message["data"], dict) and "auth_token" in message["data"]:
+            log_data = message["data"].copy()
+            token = str(log_data.get("auth_token", ""))
+            log_data["auth_token"] = f"{token[:5]}...***" if token else ""
+            log_msg = {**message, "data": log_data}
+            ws_logger.debug(f"Websocket[{self._idx}] sent: {log_msg}")
+        else:
+            ws_logger.debug(f"Websocket[{self._idx}] sent: {message}")
 
 
 class WebsocketPool:

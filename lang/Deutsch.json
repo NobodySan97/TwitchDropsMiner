@@ -133,15 +133,29 @@
                 "name": "Allgemein",
                 "autostart": "Autostart: ",
                 "tray": "Autostart ins System Tray: ",
-                "priority_only": "Nur Priorität: ",
                 "dark_mode": "Dunkler Modus: ",
-                "proxy": "Proxy (Erfordert Neustart):"
+                "proxy": "Proxy (Erfordert Neustart):",
+                "priority_mode": "Prioritätsmodus: ",
+                "tray_notifications": "Benachrichtigungen im Infobereich: "
             },
             "game_name": "Spiel",
             "priority": "Priorität",
             "exclude": "Ausschließen",
             "reload": "Neu laden",
-            "reload_text": "Die meisten Änderungen erfordern ein neu laden, um sofort wirksam zu werden: "
+            "reload_text": "Die meisten Änderungen erfordern ein neu laden, um sofort wirksam zu werden: ",
+            "priority_modes": {
+                "priority_only": "Nur Prioritätsliste",
+                "ending_soonest": "Bald endend",
+                "low_availability": "Niedrige Verfügbarkeit zuerst",
+                "shortest_time": "Kürzeste Wiedergabezeit zuerst"
+            },
+            "advanced": {
+                "name": "Erweitert",
+                "warning": "Warnung!",
+                "warning_text": "Diese Optionen können Fehlverhalten des Miners verursachen.\nWenn Probleme auftreten, stellen Sie sicher, dass alle diese Optionen deaktiviert sind.",
+                "enable_badges_emotes": "Teilweise Unterstützung für Abzeichen und Emotes aktivieren: ",
+                "available_drops_check": "Zusätzliche Überprüfung verfügbarer Drops aktivieren: "
+            }
         },
         "help": {
             "links": {
@@ -152,7 +166,11 @@
             "how_it_works": "So funktioniert's",
             "how_it_works_text": "Alle ~60 Sekunden sendet die Anwendung ein \"Minute zugesehen\" Ereignis an den Kanal, dem gerade zugesehen wird.\nDies reicht aus, um den Drop voranzutreiben. Auf diese Weise ist es nicht nötig den Stream herunterzuladen und spart Bandbreite.\nUm den Online- oder Offline-Status der Kanäle aktuell zu halten, wird eine Websocket-Verbindung eingerichtet,\ndie die Kanäle auf ihren Status überprüft.",
             "getting_started": "Erste Schritte",
-            "getting_started_text": "• In der Anwendung anmelden.\n• Stelle sicher, dass das Twitch-Konto mit allen Kampagnen verknüpft ist, an denen Interesse besteht.\n• Sollen alle Drops bearbeitet werden, entferne den Haken bei \"Nur Priorität\" und drücke \"Neu laden\".\n• Sollen nur bestimmte Spiele in betracht gezogen werden, verwende die \"Priorität\" Liste um die Wahl nach Spielen einzugrenzen.\n• Die Liste priorisiert von oben nach unten.\n• Die Option \"Nur Priorität\" verhindert, dass Spiele, die nicht auf der Prioritätenliste stehen, bearbeitet werden.\n• Mit der Liste \"Ausschließen\", ist es möglich Spiele zu filtern, die niemals in betracht gezogen werden sollen.\n• Wenn Listen oder Optionen angepasst wurden, muss \"Neu laden\" gedrückt werden, damit die Änderungen übernommen werden."
+            "getting_started_text": "• In der Anwendung anmelden.\n• Stelle sicher, dass das Twitch-Konto mit allen Kampagnen verknüpft ist, an denen Interesse besteht.\n• Sollen alle Drops bearbeitet werden, entferne den Haken bei \"Nur Priorität\" und drücke \"Neu laden\".\n• Sollen nur bestimmte Spiele in betracht gezogen werden, verwende die \"Priorität\" Liste um die Wahl nach Spielen einzugrenzen.\n• Die Liste priorisiert von oben nach unten.\n• Die Option \"Nur Priorität\" verhindert, dass Spiele, die nicht auf der Prioritätenliste stehen, bearbeitet werden.\n• Mit der Liste \"Ausschließen\", ist es möglich Spiele zu filtern, die niemals in betracht gezogen werden sollen.\n• Wenn Listen oder Optionen angepasst wurden, muss \"Neu laden\" gedrückt werden, damit die Änderungen übernommen werden.",
+            "invalidate": {
+                "button": "Ungültig machen",
+                "text": "Authentifizierungstoken ungültig machen (abmelden):"
+            }
         }
     }
 }

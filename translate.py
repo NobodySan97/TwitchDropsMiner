@@ -179,6 +179,7 @@ class GUIPriorityModes(TypedDict):
     priority_only: str
     ending_soonest: str
     low_availability: str
+    shortest_time: str
 
 
 class GUISettings(TypedDict):
@@ -397,6 +398,7 @@ default_translation: Translation = {
                 "priority_only": "Priority list only",
                 "ending_soonest": "Ending soonest",
                 "low_availability": "Low availability first",
+                "shortest_time": "Shortest watch time first",
             },
             "game_name": "Game name",
             "priority": "Priority",

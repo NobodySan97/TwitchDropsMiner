@@ -15,7 +15,14 @@
         "incorrect_email_code": "Nesprávný E-Mail kód.",
         "incorrect_twofa_code": "Nesprávný dvoufaktorový token",
         "email_code_required": "K přihlášení je vyžadován kód který byl zaslán na váš E-Mail.",
-        "twofa_code_required": "K přihlášení je vyžadován dvoufaktorový kód."
+        "twofa_code_required": "K přihlášení je vyžadován dvoufaktorový kód.",
+        "chrome": {
+            "startup": "Otevírání Chrome...",
+            "login_to_complete": "Dokončete postup přihlášení ručně opětovným stisknutím tlačítka Přihlásit se.",
+            "no_token": "Nebyl nalezen žádný autorizační token.",
+            "closed_window": "Okno Chrome bylo zavřeno dříve, než mohl být proces přihlášení dokončen."
+        },
+        "error_code": "Kód chyby přihlášení: {error_code}"
     },
     "error": {
         "captcha": "Vaše připojení bylo zamítnuto službou Twitch, zkuste to znovu za 12 hodin.",
@@ -83,9 +90,9 @@
         "channels": {
             "name": "Název",
             "switch": "Přepnout",
-            "online": "ONLINE  \u2714",
-            "pending": "PRŮBĚH \u23f3",
-            "offline": "OFFLINE \u274c",
+            "online": "ONLINE  ✔",
+            "pending": "PRŮBĚH ⏳",
+            "offline": "OFFLINE ❌",
             "headings": {
                 "channel": "Kanál",
                 "game": "Hra",
@@ -105,13 +112,13 @@
                 "refresh": "Obnovit"
             },
             "status": {
-                "linked": "ŽIVĚ \u2714",
-                "not_linked": "Zatím nejsou dostupné žádné kanály \u274c",
-                "active": "ŽIVĚ \u2714",
-                "upcoming": "Nadcházející \u23f3",
-                "expired": "Ukončeno \u274c",
-                "claimed": "Vyzvednuto \u2714",
-                "ready_to_claim": "Připraveno k vyzvednutí \u23f3"
+                "linked": "ŽIVĚ ✔",
+                "not_linked": "Zatím nejsou dostupné žádné kanály ❌",
+                "active": "ŽIVĚ ✔",
+                "upcoming": "Nadcházející ⏳",
+                "expired": "Ukončeno ❌",
+                "claimed": "Vyzvednuto ✔",
+                "ready_to_claim": "Připraveno k vyzvednutí ⏳"
             },
             "starts": "Začíná: {time}",
             "ends": "Začíná: {time}",
@@ -126,15 +133,29 @@
                 "name": "Nastavení",
                 "autostart": "Automatické spuštění: ",
                 "tray": "Automaticky spusti minimalizovaně: ",
-                "priority_only": "Pouze prioritní: ",
                 "dark_mode": "Tmavý režim: ",
-                "proxy": "Proxy:"
+                "proxy": "Proxy:",
+                "priority_mode": "Režim priority: ",
+                "tray_notifications": "Oznámení na liště: "
             },
             "game_name": "Název Hry",
             "priority": "Priorita",
             "exclude": "Vynechat",
             "reload": "Obnovit",
-            "reload_text": "Většina změn vyžaduje restart aplikace nebo obnovení: "
+            "reload_text": "Většina změn vyžaduje restart aplikace nebo obnovení: ",
+            "priority_modes": {
+                "priority_only": "Pouze seznam priorit",
+                "ending_soonest": "Končící nejdříve",
+                "low_availability": "Nejprve nízká dostupnost",
+                "shortest_time": "Nejkratší doba sledování nejprve"
+            },
+            "advanced": {
+                "name": "Pokročilé",
+                "warning": "Varování!",
+                "warning_text": "Tyto možnosti mohou způsobit nesprávné chování programu.\nPokud narazíte na problémy, ujistěte se, že jsou všechny tyto možnosti zakázány.",
+                "enable_badges_emotes": "Povolit částečnou podporu pro odznaky a emotikony: ",
+                "available_drops_check": "Povolit dodatečnou kontrolu dostupných dropů: "
+            }
         },
         "help": {
             "links": {
@@ -145,7 +166,11 @@
             "how_it_works": "Jak to funguje",
             "how_it_works_text": "Každých ~60 sekund aplikace odešle událost 'sledované minuty' na aktuálně sledovaný kanál - to stačí k posunu umístění. Všimněte si, že tímto způsobem zcela odpadá nutnost stahovat skutečné streamované video a zvuk. Aby byl stav kanálu (online nebo offline) stále aktuální, je navázáno spojení přes websocket, které přijímá události o spuštění nebo vypnutí streamů nebo aktualizace o aktuálním počtu diváků.",
             "getting_started": "Jak začít",
-            "getting_started_text": "1. Přihlaste se do aplikace. \n2. Ujistěte se, že je váš účet Twitch spojen se všemi reklamními sériemi, které chcete těžit. \n3. Pokud chcete klepnout pouze na veškerý obsah, zrušte zaškrtnutí políčka 'Pouze prioritní' a stiskněte tlačítko 'Obnovit'. \n4. Pokud se chcete nejprve věnovat konkrétním hrám, použijte seznam 'Prioritní' a nastavte si pořadí vybraných her. Nejprve se vyzkouší hry na začátku seznamu a poté hry na konci seznamu. \n5. Ponechte zaškrtnutou možnost 'Pouze prioritní', abyste se vyhnuli vyhledávání her, které nejsou na seznamu priorit. Nebo ne - záleží na vás. \n6. Pomocí seznamu 'vyloučit' můžete aplikaci sdělit, které hry by neměly být vytěženy. \n7. Změna obsahu obou seznamů nebo stavu možnosti Pouze prioritní vyžaduje stisknutí tlačítka Znovu načíst, aby se změna projevila."
+            "getting_started_text": "1. Přihlaste se do aplikace. \n2. Ujistěte se, že je váš účet Twitch spojen se všemi reklamními sériemi, které chcete těžit. \n3. Pokud chcete klepnout pouze na veškerý obsah, zrušte zaškrtnutí políčka 'Pouze prioritní' a stiskněte tlačítko 'Obnovit'. \n4. Pokud se chcete nejprve věnovat konkrétním hrám, použijte seznam 'Prioritní' a nastavte si pořadí vybraných her. Nejprve se vyzkouší hry na začátku seznamu a poté hry na konci seznamu. \n5. Ponechte zaškrtnutou možnost 'Pouze prioritní', abyste se vyhnuli vyhledávání her, které nejsou na seznamu priorit. Nebo ne - záleží na vás. \n6. Pomocí seznamu 'vyloučit' můžete aplikaci sdělit, které hry by neměly být vytěženy. \n7. Změna obsahu obou seznamů nebo stavu možnosti Pouze prioritní vyžaduje stisknutí tlačítka Znovu načíst, aby se změna projevila.",
+            "invalidate": {
+                "button": "Zneplatnit",
+                "text": "Zneplatnit ověřovací token (odhlásit se):"
+            }
         }
     }
 }

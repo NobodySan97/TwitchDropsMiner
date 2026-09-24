@@ -148,7 +148,8 @@
             "priority_modes": {
                 "priority_only": "仅观看优先列表中的游戏",
                 "ending_soonest": "优先挖掘即将结束的掉宝",
-                "low_availability": "优先挖掘频道少的掉宝      "
+                "low_availability": "优先挖掘频道少的掉宝      ",
+                "shortest_time": "最短观看时间优先"
             },
             "game_name": "游戏名称",
             "priority": "优先列表-优先挖掘以下游戏的掉宝",

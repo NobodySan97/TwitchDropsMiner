@@ -27,7 +27,9 @@ DIMS_PATTERN = re.compile(r'-\d+x\d+(?=\.(?:jpg|png|gif)$)', re.I)
 
 
 def remove_dimensions(url: URLType) -> URLType:
-    return URLType(DIMS_PATTERN.sub('', url))
+    if not url:
+        return URLType("")
+    return URLType(DIMS_PATTERN.sub('', str(url)))
 
 
 class BenefitType(Enum):
@@ -44,15 +46,21 @@ class Benefit:
     __slots__ = ("id", "name", "type", "image_url")
 
     def __init__(self, data: JsonType):
-        benefit_data: JsonType = data["benefit"]
-        self.id: str = benefit_data["id"]
-        self.name: str = benefit_data["name"]
+        benefit_data: JsonType = data.get("benefit") or data
+        self.id: str = benefit_data.get("id", "")
+        self.name: str = benefit_data.get("name", "")
+        dist_type = benefit_data.get("distributionType")
         self.type: BenefitType = (
-            BenefitType(benefit_data["distributionType"])
-            if benefit_data["distributionType"] in BenefitType.__members__.keys()
+            BenefitType(dist_type)
+            if dist_type in BenefitType.__members__.keys()
             else BenefitType.UNKNOWN
         )
-        self.image_url: URLType = benefit_data["imageAssetURL"]
+        self.image_url: URLType = URLType(
+            benefit_data.get("imageAssetURL")
+            or benefit_data.get("imageURL")
+            or benefit_data.get("image_url")
+            or ""
+        )
 
 
 class BaseDrop:
@@ -68,27 +76,25 @@ class BaseDrop:
         self.ends_at: datetime = timestamp(data["endAt"])
         self.claim_id: str | None = None
         self.is_claimed: bool = False
-        if "self" in data:
-            self.claim_id = data["self"]["dropInstanceID"]
-            self.is_claimed = data["self"]["isClaimed"]
-        elif (
-            # If there's no self edge available, we can use claimed_benefits to determine
-            # (with pretty good certainty) if this drop has been claimed or not.
-            # To do this, we check if the benefitEdges appear in claimed_benefits, and then
-            # deref their "lastAwardedAt" timestamps into a list to check against.
-            # If the benefits were claimed while the drop was active,
-            # the drop has been claimed too.
-            (
-                dts := [
-                    claimed_benefits[bid]
-                    for benefit in self.benefits
-                    if (bid := benefit.id) in claimed_benefits
-                ]
-            )
-            and all(self.starts_at <= dt < self.ends_at for dt in dts)
-        ):
-            self.is_claimed = True
-        self.precondition_drops: list[str] = [d["id"] for d in (data["preconditionDrops"] or [])]
+        if "self" in data and data["self"] is not None:
+            self.claim_id = data["self"].get("dropInstanceID")
+            self.is_claimed = bool(data["self"].get("isClaimed"))
+        elif self.benefits:
+            claimed_matches = []
+            for benefit in self.benefits:
+                val = claimed_benefits.get(benefit.id)
+                if not val:
+                    continue
+                dts = val if isinstance(val, list) else [val]
+                for dt in list(dts):
+                    if self.starts_at <= dt <= self.ends_at:
+                        claimed_matches.append(benefit.id)
+                        if isinstance(val, list):
+                            val.remove(dt)
+                        break
+            if len(claimed_matches) == len(self.benefits) and len(self.benefits) > 0:
+                self.is_claimed = True
+        self.precondition_drops: list[str] = [d["id"] for d in (data.get("preconditionDrops") or [])]
 
     def __repr__(self) -> str:
         if self.is_claimed:
@@ -222,13 +228,14 @@ class TimedDrop(BaseDrop):
         self, campaign: DropsCampaign, data: JsonType, claimed_benefits: dict[str, datetime]
     ):
         super().__init__(campaign, data, claimed_benefits)
+        self_data = data.get("self")
         self.real_current_minutes: int = (
-            "self" in data and data["self"]["currentMinutesWatched"] or 0
+            self_data.get("currentMinutesWatched", 0) if isinstance(self_data, dict) else 0
         )
-        self.required_minutes: int = data["requiredMinutesWatched"]
+        self.required_minutes: int = data.get("requiredMinutesWatched", 0)
         self.extra_current_minutes: int = 0
-        if self.is_claimed:
-            # claimed drops may report inconsistent current minutes, so we need to overwrite them
+        if self.is_claimed or self.claim_id:
+            # claimed or claim-ready drops may report inconsistent current minutes, so we need to overwrite them
             self.real_current_minutes = self.required_minutes
 
     def __repr__(self) -> str:
@@ -249,7 +256,7 @@ class TimedDrop(BaseDrop):
         return (
             not self.is_claimed
             and (
-                self.claim_id is not None
+                bool(self.claim_id)
                 or (self.required_minutes > 0 and self.current_minutes >= self.required_minutes)
             )
             and datetime.now(timezone.utc) < self.campaign.ends_at + timedelta(hours=24)
@@ -354,24 +361,30 @@ class DropsCampaign:
     def __init__(self, twitch: Twitch, data: JsonType, claimed_benefits: dict[str, datetime]):
         self._twitch: Twitch = twitch
         self.id: str = data["id"]
-        self.name: str = data["name"]
-        self.game: Game = Game(data["game"])
-        self.linked: bool = data["self"]["isAccountConnected"]
-        self.link_url: str = data["accountLinkURL"]
-        # campaign's image actually comes from the game object
-        # we use regex to get rid of the dimensions part (ex. ".../game_id-285x380.jpg")
-        self.image_url: URLType = remove_dimensions(data["game"]["boxArtURL"])
+        self.name: str = data.get("name", "")
+        self.game: Game = Game(data.get("game") or {})
+        self_data = data.get("self")
+        self.linked: bool = (
+            bool(self_data.get("isAccountConnected")) if isinstance(self_data, dict) else True
+        )
+        self.link_url: str = data.get("accountLinkURL") or data.get("detailsURL") or ""
+        game_dict = data.get("game") or {}
+        self.image_url: URLType = remove_dimensions(
+            data.get("imageURL") or game_dict.get("boxArtURL") or ""
+        )
         self.starts_at: datetime = timestamp(data["startAt"])
         self.ends_at: datetime = timestamp(data["endAt"])
-        self._valid: bool = data["status"] != "EXPIRED"
-        allowed: JsonType = data["allow"]
+        self._valid: bool = data.get("status") != "EXPIRED"
+        allowed: JsonType = data.get("allow") or {}
+        channels_raw = allowed.get("channels")
         self.allowed_channels: list[Channel] = (
-            [Channel.from_acl(twitch, channel_data) for channel_data in allowed["channels"]]
-            if allowed["channels"] and allowed.get("isEnabled", True) else []
+            [Channel.from_acl(twitch, channel_data) for channel_data in channels_raw]
+            if channels_raw and allowed.get("isEnabled", True) else []
         )
         self.timed_drops: dict[str, TimedDrop] = {
             drop_data["id"]: TimedDrop(self, drop_data, claimed_benefits)
-            for drop_data in data["timeBasedDrops"]
+            for drop_data in (data.get("timeBasedDrops") or [])
+            if isinstance(drop_data, dict) and "id" in drop_data
         }
 
     def __repr__(self) -> str:

@@ -90,9 +90,9 @@
         "channels": {
             "name": "活動頻道",
             "switch": "切換",
-            "online": "上線 \u2714",
-            "pending": "離線 \u23f3",
-            "offline": "離線 \u274c",
+            "online": "上線 ✔",
+            "pending": "離線 ⏳",
+            "offline": "離線 ❌",
             "headings": {
                 "channel": "頻道",
                 "game": "遊戲",
@@ -112,13 +112,13 @@
                 "refresh": "重新整理"
             },
             "status": {
-                "linked": "已連結 \u2714",
-                "not_linked": "未連結 \u274c",
-                "active": "已上線 \u2714",
-                "upcoming": "即將開始 \u23f3",
-                "expired": "已結束 \u274c",
-                "claimed": "已領取 \u2714",
-                "ready_to_claim": "可以領取 \u23f3"
+                "linked": "已連結 ✔",
+                "not_linked": "未連結 ❌",
+                "active": "已上線 ✔",
+                "upcoming": "即將開始 ⏳",
+                "expired": "已結束 ❌",
+                "claimed": "已領取 ✔",
+                "ready_to_claim": "可以領取 ⏳"
             },
             "starts": "開始時間：{time}",
             "ends": "結束時間：{time}",
@@ -148,7 +148,8 @@
             "priority_modes": {
                 "priority_only": "僅參與優先掉寶遊戲",
                 "ending_soonest": "優先觀看即將結束的掉寶活動",
-                "low_availability": "優先觀看可用頻道較少的掉寶活動"
+                "low_availability": "優先觀看可用頻道較少的掉寶活動",
+                "shortest_time": "最短觀看時間優先"
             },
             "game_name": "遊戲名稱",
             "priority": "優先掉寶遊戲",

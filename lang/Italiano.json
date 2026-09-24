@@ -90,9 +90,9 @@
         "channels": {
             "name": "Canali",
             "switch": "Cambia",
-            "online": "ONLINE  \u2714",
-            "pending": "OFFLINE \u23f3",
-            "offline": "OFFLINE \u274c",
+            "online": "ONLINE  ✔",
+            "pending": "OFFLINE ⏳",
+            "offline": "OFFLINE ❌",
             "headings": {
                 "channel": "Canale",
                 "status": "Stato",
@@ -112,13 +112,13 @@
                 "refresh": "Aggiorna"
             },
             "status": {
-                "linked": "Collegato \u2714",
-                "not_linked": "Non collegato \u274c",
-                "active": "Attivo \u2714",
-                "upcoming": "In arrivo \u23f3",
-                "expired": "Scaduto \u274c",
-                "claimed": "Riscattato \u2714",
-                "ready_to_claim": "Pronto per essere riscattato \u23f3"
+                "linked": "Collegato ✔",
+                "not_linked": "Non collegato ❌",
+                "active": "Attivo ✔",
+                "upcoming": "In arrivo ⏳",
+                "expired": "Scaduto ❌",
+                "claimed": "Riscattato ✔",
+                "ready_to_claim": "Pronto per essere riscattato ⏳"
             },
             "starts": "Inizia: {time}",
             "ends": "Finisce: {time}",
@@ -135,14 +135,27 @@
                 "tray": "Avvio automatico nella barra delle applicazioni: ",
                 "tray_notifications": "Notifiche: ",
                 "dark_mode": "Modalità scura: ",
-                "priority_only": "Solo priorità: ",
-                "proxy": "Proxy (richiede il riavvio):"
+                "proxy": "Proxy (richiede il riavvio):",
+                "priority_mode": "Modalità priorità: "
             },
             "game_name": "Nome del gioco",
             "priority": "Priorità",
             "exclude": "Escludi",
             "reload": "Ricarica",
-            "reload_text": "La maggior parte delle modifiche richiede una ricarica con il botto nqui di fianco per avere un effetto immediato: "
+            "reload_text": "La maggior parte delle modifiche richiede una ricarica con il pulsante qui a fianco per avere un effetto immediato: ",
+            "priority_modes": {
+                "priority_only": "Solo lista priorità",
+                "ending_soonest": "In scadenza prima",
+                "low_availability": "Bassa disponibilità prima",
+                "shortest_time": "Minor tempo di visione prima"
+            },
+            "advanced": {
+                "name": "Avanzate",
+                "warning": "Attenzione!",
+                "warning_text": "Queste opzioni possono causare anomalie nel funzionamento del miner.\nSe riscontri problemi, assicurati che tutte queste opzioni siano disabilitate.",
+                "enable_badges_emotes": "Abilita supporto parziale per stemmi ed emote: ",
+                "available_drops_check": "Abilita controllo extra per drop disponibili: "
+            }
         },
         "help": {
             "links": {
@@ -153,7 +166,11 @@
             "how_it_works": "Come funziona",
             "how_it_works_text": "Ogni ~60 secondi, l'applicazione invia un evento \"minuto guardato\" al canale che stai guardando - questo è sufficiente per far avanzare il progresso dei drop. Da notare che questo bypassa completamente la necessità di scaricare qualsiasi video o audio della diretta. Per mantenere lo stato (ONLINE o OFFLINE) dei canali aggiornato, c'è una connessione websocket stabilita che riceve eventi sui canali che vanno online o offline, o aggiornamenti riguardanti il numero attuale di spettatori.",
             "getting_started": "Per iniziare",
-            "getting_started_text": "1. Effettua il login nell'applicazione.\n2. Assicurati che il tuo account Twitch sia collegato a tutte le campagne per cui sei interessato a ottenere i drop.\n3. Se sei interessato a ottenere tutto, deseleziona \"Solo priorità\" e premi su \"Ricarica\".\n4. Se vuoi ottenere prima giochi specifici, usa la lista \"Priorità\" per impostare una lista ordinata di giochi a tua scelta. I giochi in cima alla lista verranno ottenuti prima.\n5. Mantieni l'opzione \"Solo priorità\" selezionata, per evitare di ottenere giochi che non sono nella lista delle priorità. Oppure non farlo - dipende da te.\n6. Usa la lista \"Escludi\" per dire all'applicazione quali giochi non devono mai essere ottenuti.\n7. Cambiare il contenuto di una delle liste, o cambiare lo stato dell'opzione \"Solo priorità\", richiede di premere su \"Ricarica\" perché le modifiche abbiano effetto."
+            "getting_started_text": "1. Effettua il login nell'applicazione.\n2. Assicurati che il tuo account Twitch sia collegato a tutte le campagne per cui sei interessato a ottenere i drop.\n3. Se sei interessato a ottenere tutto, deseleziona \"Solo priorità\" e premi su \"Ricarica\".\n4. Se vuoi ottenere prima giochi specifici, usa la lista \"Priorità\" per impostare una lista ordinata di giochi a tua scelta. I giochi in cima alla lista verranno ottenuti prima.\n5. Mantieni l'opzione \"Solo priorità\" selezionata, per evitare di ottenere giochi che non sono nella lista delle priorità. Oppure non farlo - dipende da te.\n6. Usa la lista \"Escludi\" per dire all'applicazione quali giochi non devono mai essere ottenuti.\n7. Cambiare il contenuto di una delle liste, o cambiare lo stato dell'opzione \"Solo priorità\", richiede di premere su \"Ricarica\" perché le modifiche abbiano effetto.",
+            "invalidate": {
+                "button": "Invalida",
+                "text": "Invalida il token di autenticazione (disconnetti):"
+            }
         }
     }
 }

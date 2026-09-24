@@ -27,7 +27,7 @@
     "error": {
         "captcha": "Sambungan ditolak oleh CAPTCHA. Silakan coba lagi dalam waktu sekitar 12 jam.",
         "site_down": "Twitch tidak tersedia. Silakan coba lagi dalam {seconds} detik...",
-        "no_connection": "Tidak dapat tersambung ke Twitch. Silakan coba lagi dalam {detik} detik... ({url})"
+        "no_connection": "Tidak dapat tersambung ke Twitch, mencoba lagi dalam {seconds} detik... ({url})"
     },
     "gui": {
         "output": "Keluaran",
@@ -135,14 +135,27 @@
                 "tray": "Mulai otomatis di bilah tugas :",
                 "tray_notifications": "Pemberitahuan bilah tugas :",
                 "dark_mode": "Mode gelap: ",
-                "priority_only": "Prioritas saja :",
-                "proxy": "Proksi (harus dimulai ulang) :"
+                "proxy": "Proksi (harus dimulai ulang) :",
+                "priority_mode": "Mode prioritas: "
             },
             "game_name": "Nama game",
             "priority": "Prioritas",
             "exclude": "Kecualikan",
             "reload": "Muat Ulang",
-            "reload_text": "Sebagian besar perubahan memerlukan pemuatan ulang untuk segera diterapkan : "
+            "reload_text": "Sebagian besar perubahan memerlukan pemuatan ulang untuk segera diterapkan : ",
+            "priority_modes": {
+                "priority_only": "Hanya daftar prioritas",
+                "ending_soonest": "Segera berakhir",
+                "low_availability": "Ketersediaan rendah lebih dulu",
+                "shortest_time": "Waktu tonton terpendek lebih dulu"
+            },
+            "advanced": {
+                "name": "Lanjutan",
+                "warning": "Peringatan!",
+                "warning_text": "Opsi ini dapat menyebabkan miner bermasalah.\nJika Anda mengalami masalah, pastikan semua opsi ini dinonaktifkan.",
+                "enable_badges_emotes": "Aktifkan dukungan parsial untuk lencana dan emote: ",
+                "available_drops_check": "Aktifkan pemeriksaan drop tambahan yang tersedia: "
+            }
         },
         "help": {
             "links": {
@@ -153,7 +166,11 @@
             "how_it_works": "Cara kerja",
             "how_it_works_text": "Kira-kira setiap ~60 detik, aplikasi ini mengirimkan \"menit ditonton\" ke saluran yang sedang ditonton - yang cukup untuk membuat drop terus bergerak. Perhatikan bahwa hal ini sepenuhnya mengabaikan kebutuhan untuk mengunduh video dan audio dari streaming yang sebenarnya. Untuk menjaga agar status (ONLINE atau OFFLINE) saluran tetap terbaru, koneksi websocket dibuat untuk menerima peristiwa tentang streaming yang naik atau turun, atau pembaruan tentang jumlah penonton saat ini",
             "getting_started": "Mulai",
-            "getting_started_text": "1. Masuk ke aplikasi.\n2. Pastikan akun Twitch Anda ditautkan ke semua kampanye yang Anda minati.\n3. Jika Anda hanya ingin menambang semuanya, hapus centang pada \"Hanya Prioritas\" dan tekan \"Muat Ulang\".\n4. Jika Anda ingin menambang game tertentu terlebih dahulu, gunakan daftar \"Prioritas\" untuk menentukan daftar game pilihan Anda. Game yang berada di bagian atas daftar akan tergoda untuk ditambang terlebih dahulu, sebelum game yang berada di bagian bawah daftar.\n5. Biarkan opsi \"Prioritas saja\" dicentang untuk menghindari menambang game yang tidak ada dalam daftar prioritas. Atau tidak - terserah Anda.\n6. Gunakan daftar \"Kecualikan\" untuk memberi tahu aplikasi game mana yang tidak boleh ditambang.\n7. Untuk memodifikasi konten dari salah satu daftar atau mengubah status opsi \"Hanya Prioritas\", Anda perlu menekan \"Muat Ulang\" agar perubahan dapat diterapkan."
+            "getting_started_text": "1. Masuk ke aplikasi.\n2. Pastikan akun Twitch Anda ditautkan ke semua kampanye yang Anda minati.\n3. Jika Anda hanya ingin menambang semuanya, hapus centang pada \"Hanya Prioritas\" dan tekan \"Muat Ulang\".\n4. Jika Anda ingin menambang game tertentu terlebih dahulu, gunakan daftar \"Prioritas\" untuk menentukan daftar game pilihan Anda. Game yang berada di bagian atas daftar akan tergoda untuk ditambang terlebih dahulu, sebelum game yang berada di bagian bawah daftar.\n5. Biarkan opsi \"Prioritas saja\" dicentang untuk menghindari menambang game yang tidak ada dalam daftar prioritas. Atau tidak - terserah Anda.\n6. Gunakan daftar \"Kecualikan\" untuk memberi tahu aplikasi game mana yang tidak boleh ditambang.\n7. Untuk memodifikasi konten dari salah satu daftar atau mengubah status opsi \"Hanya Prioritas\", Anda perlu menekan \"Muat Ulang\" agar perubahan dapat diterapkan.",
+            "invalidate": {
+                "button": "Batalkan",
+                "text": "Batalkan token autentikasi (keluar):"
+            }
         }
     }
 }

@@ -73,12 +73,16 @@ DIGITS = ceil(log10(WS_TOPICS_LIMIT))
 
 
 class _TKOutputHandler(logging.Handler):
-    def __init__(self, output: GUIManager):
-        super().__init__()
+    def __init__(self, output: GUIManager, level: int = logging.NOTSET):
+        super().__init__(level=level)
         self._output = output
 
-    def emit(self, record):
-        self._output.print(self.format(record))
+    def emit(self, record: logging.LogRecord):
+        try:
+            msg = self.format(record)
+            self._output.print(msg)
+        except Exception:
+            self.handleError(record)
 
 
 class PlaceholderEntry(ttk.Entry):
@@ -192,6 +196,147 @@ class PlaceholderEntry(ttk.Entry):
 
 class PlaceholderCombobox(PlaceholderEntry, ttk.Combobox):
     pass
+
+
+class AutocompleteCombobox(PlaceholderCombobox):
+    def __init__(self, master: ttk.Widget, *args: Any, **kwargs: Any):
+        super().__init__(master, *args, **kwargs)
+        self._all_values: list[str] = list(kwargs.get("values", []))
+        self._popup: tk.Toplevel | None = None
+        self._listbox: tk.Listbox | None = None
+
+        self.bind("<KeyRelease>", self._on_keyrelease)
+        self.bind("<FocusOut>", self._on_focusout)
+        self.bind("<Down>", self._on_down)
+        self.bind("<Up>", self._on_up)
+        self.bind("<Return>", self._on_return)
+        self.bind("<Escape>", lambda e: self._hide_popup())
+        self.bind("<<ComboboxSelected>>", lambda e: self._hide_popup())
+
+    def configure(self, *args: Any, **kwargs: Any) -> Any:
+        if "values" in kwargs:
+            self._all_values = list(kwargs["values"])
+        return super().configure(*args, **kwargs)
+
+    config = configure
+
+    def clear(self) -> None:
+        self._hide_popup()
+        super().clear()
+
+    def _create_popup(self) -> None:
+        if self._popup is not None and self._popup.winfo_exists():
+            return
+        self._popup = tk.Toplevel(self)
+        self._popup.wm_overrideredirect(True)
+        self._popup.wm_attributes("-topmost", True)
+
+        frame = tk.Frame(self._popup, bg="#772CE8", bd=1)
+        frame.pack(fill="both", expand=True)
+
+        self._listbox = tk.Listbox(
+            frame,
+            font=("Segoe UI", 9),
+            bd=0,
+            highlightthickness=0,
+            activestyle="none",
+            exportselection=False,
+        )
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self._listbox.yview)
+        self._listbox.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self._listbox.pack(side="left", fill="both", expand=True)
+        self._listbox.bind("<ButtonRelease-1>", self._on_click_item)
+
+    def _show_popup(self, matches: list[str]) -> None:
+        if not matches or not self.winfo_ismapped():
+            self._hide_popup()
+            return
+        self._create_popup()
+        assert self._listbox is not None
+        assert self._popup is not None
+        self._listbox.delete(0, "end")
+        for m in matches:
+            self._listbox.insert("end", f"  {m}")
+        self._listbox.selection_clear(0, "end")
+        self._listbox.selection_set(0)
+        self._listbox.activate(0)
+
+        self.update_idletasks()
+        x = self.winfo_rootx()
+        y = self.winfo_rooty() + self.winfo_height() + 2
+        w = max(self.winfo_width(), 200)
+        h = min(len(matches), 7) * 22 + 4
+        self._popup.geometry(f"{w}x{h}+{x}+{y}")
+        self._popup.deiconify()
+        self._popup.lift()
+
+    def _hide_popup(self) -> None:
+        if self._popup is not None and self._popup.winfo_exists():
+            self._popup.withdraw()
+
+    def _on_keyrelease(self, event: tk.Event[Any]) -> None:
+        if event.keysym in ("Up", "Down", "Return", "Escape", "Tab"):
+            return
+        pattern = self.get().strip().lower()
+        if not pattern:
+            super().configure(values=self._all_values)
+            self._hide_popup()
+        else:
+            filtered = [v for v in self._all_values if pattern in v.lower()]
+            super().configure(values=filtered)
+            if filtered:
+                self._show_popup(filtered)
+            else:
+                self._hide_popup()
+
+    def _on_down(self, event: tk.Event[Any]) -> str | None:
+        if self._popup and self._popup.winfo_exists() and self._popup.winfo_ismapped():
+            assert self._listbox is not None
+            cur = self._listbox.curselection()
+            idx = (cur[0] + 1) if cur else 0
+            if idx < self._listbox.size():
+                self._listbox.selection_clear(0, "end")
+                self._listbox.selection_set(idx)
+                self._listbox.activate(idx)
+                self._listbox.see(idx)
+            return "break"
+        return None
+
+    def _on_up(self, event: tk.Event[Any]) -> str | None:
+        if self._popup and self._popup.winfo_exists() and self._popup.winfo_ismapped():
+            assert self._listbox is not None
+            cur = self._listbox.curselection()
+            idx = (cur[0] - 1) if cur else 0
+            if idx >= 0:
+                self._listbox.selection_clear(0, "end")
+                self._listbox.selection_set(idx)
+                self._listbox.activate(idx)
+                self._listbox.see(idx)
+            return "break"
+        return None
+
+    def _on_return(self, event: tk.Event[Any]) -> str | None:
+        if self._popup and self._popup.winfo_exists() and self._popup.winfo_ismapped():
+            assert self._listbox is not None
+            cur = self._listbox.curselection()
+            if cur:
+                selected = self._listbox.get(cur[0]).strip()
+                self.replace(selected)
+                self._hide_popup()
+                return "break"
+        return None
+
+    def _on_click_item(self, event: tk.Event[Any]) -> None:
+        if self._listbox:
+            cur = self._listbox.curselection()
+            if cur:
+                selected = self._listbox.get(cur[0]).strip()
+                self.replace(selected)
+        self._hide_popup()
+
+    def _on_focusout(self, event: tk.Event[Any]) -> None:
+        self.after(200, self._hide_popup)
 
 
 class PaddedListbox(tk.Listbox):
@@ -816,45 +961,53 @@ class ConsoleOutput:
             xscrollcommand=xscroll.set,
             yscrollcommand=yscroll.set,
         )
+        self._manager = manager
+        self._text.bind("<<Copy>>", self._copy_selection)
+        self._text.bind("<KeyPress>", self._copy_selection_shortcut)
+        self._text.bind("<ButtonRelease-1>", lambda _event: self._text.focus_set())
         xscroll.config(command=self._text.xview)
         yscroll.config(command=self._text.yview)
         self._text.grid(column=0, row=0, sticky="nsew")
         xscroll.grid(column=0, row=1, sticky="ew")
         yscroll.grid(column=1, row=0, sticky="ns")
 
+    def _copy_selection(self, event: tk.Event[tk.Text] | None = None) -> str:
+        try:
+            selected = self._text.get("sel.first", "sel.last")
+        except tk.TclError:
+            return "break"
+        if selected:
+            self._manager._root.clipboard_clear()
+            self._manager._root.clipboard_append(selected)
+            self._manager._root.update_idletasks()
+        return "break"
+
+    def _copy_selection_shortcut(self, event: tk.Event[tk.Text]) -> str | None:
+        is_ctrl = bool(event.state & 0x0004)
+        is_cmd = sys.platform == "darwin" and bool(event.state & 0x0008)
+        if not (is_ctrl or is_cmd):
+            return None
+        if sys.platform == "win32" and event.keycode not in (0x43, 0x2D):  # 'c' or Insert
+            return None
+        if sys.platform != "win32" and event.keysym.casefold() not in ("c", "insert"):
+            return None
+        return self._copy_selection(event)
+
     MAX_LINES: int = 2000
 
     def print(self, message: str):
-        stamp = datetime.now().strftime("%X")
-        if '\n' in message:
-            message_gui = message.replace('\n', f"\n{stamp}: ")
-        else:
-            message_gui = message
+        if message and not re.match(r'^\d{2}:\d{2}:\d{2}', message):
+            stamp = datetime.now().strftime("%X")
+            message = f"{stamp}: {message}"
         try:
             self._text.config(state="normal")
-            self._text.insert("end", f"{stamp}: {message_gui}\n")
+            self._text.insert("end", f"{message}\n")
             num_lines = int(float(self._text.index("end-1c").split('.')[0]))
             if num_lines > self.MAX_LINES:
                 self._text.delete("1.0", f"{num_lines - self.MAX_LINES}.0")
             self._text.see("end")  # scroll to the newly added line
             self._text.config(state="disabled")
         except tk.TclError:
-            pass
-
-        # Always save to log.txt on disk with timestamp and 10MB auto-rotation
-        try:
-            if LOG_PATH.exists() and LOG_PATH.stat().st_size > 10 * 1024 * 1024:
-                old_log = LOG_PATH.with_suffix(".txt.old")
-                try:
-                    if old_log.exists():
-                        old_log.unlink()
-                    LOG_PATH.rename(old_log)
-                except Exception:
-                    pass
-            date_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with open(LOG_PATH, "a", encoding="utf8") as f:
-                f.write(f"{date_stamp}: {message}\n")
-        except Exception:
             pass
 
     def configure_theme(self, *, bg: str, fg: str, sel_bg: str, sel_fg: str):
@@ -1098,8 +1251,9 @@ class ChannelList:
 
     def remove(self, channel: Channel):
         iid = channel.iid
-        del self._channel_map[iid]
-        self._table.delete(iid)
+        self._channel_map.pop(iid, None)
+        if self._table.exists(iid):
+            self._table.delete(iid)
 
 
 class TrayIcon:
@@ -1196,10 +1350,17 @@ class TrayIcon:
         self._manager._root.withdraw()
 
     def restore(self):
-        if self.icon is not None:
-            # self.stop()
-            self.icon.visible = False
         self._manager._root.deiconify()
+        self._manager._root.state("normal")
+        self._manager._root.lift()
+        self._manager._root.focus_force()
+        if sys.platform == "win32":
+            try:
+                win32gui.SetForegroundWindow(self._manager._handle)
+            except Exception:
+                pass
+        if self.icon is not None:
+            self.icon.visible = False
 
     def notify(
         self, message: str, title: str | None = None, duration: float = 10
@@ -1263,13 +1424,11 @@ class InventoryOverview:
         self._cache: ImageCache = manager._cache
         self._settings: Settings = manager._twitch.settings
         self._filters = {
-            "not_linked": IntVar(
-                master, self._settings.priority_mode is PriorityMode.PRIORITY_ONLY
-            ),
+            "not_linked": IntVar(master, 1),
             "upcoming": IntVar(master, 1),
             "expired": IntVar(master, 0),
             "excluded": IntVar(master, 0),
-            "finished": IntVar(master, 0),
+            "finished": IntVar(master, 1),
         }
         manager.tabs.add_view_event(self._on_tab_switched)
         # Filtering options
@@ -1326,7 +1485,7 @@ class InventoryOverview:
             filter_frame, text=_("gui", "inventory", "filter", "refresh"), command=self.refresh
         ).grid(column=(icolumn := icolumn + 1), row=0)
         # Inventory view
-        self._canvas = tk.Canvas(master, scrollregion=(0, 0, 0, 0))
+        self._canvas = tk.Canvas(master, scrollregion=(0, 0, 0, 0), yscrollincrement=20)
         self._canvas.grid(column=0, row=1, sticky="nsew")
         master.rowconfigure(1, weight=1)
         master.columnconfigure(0, weight=1)
@@ -1357,17 +1516,19 @@ class InventoryOverview:
         excluded = bool(self._filters["excluded"].get())
         upcoming = bool(self._filters["upcoming"].get())
         finished = bool(self._filters["finished"].get())
-        priority_only = self._settings.priority_mode is PriorityMode.PRIORITY_ONLY
+        priority_only = (
+            self._settings.priority_mode is PriorityMode.PRIORITY_ONLY
+            and bool(self._settings.priority)
+        )
+        is_excluded = (
+            campaign.game.name in self._settings.exclude
+            or (priority_only and campaign.game.name not in self._settings.priority)
+        )
         if (
             campaign.required_minutes > 0  # don't show sub-only campaigns
             and (not_linked or campaign.eligible)
             and (campaign.active or upcoming and campaign.upcoming or expired and campaign.expired)
-            and (
-                excluded or (
-                    campaign.game.name not in self._settings.exclude
-                    and not priority_only or campaign.game.name in self._settings.priority
-                )
-            )
+            and (excluded or not is_excluded)
             and (finished or not campaign.finished)
         ):
             frame.grid()
@@ -1378,6 +1539,9 @@ class InventoryOverview:
         if self._manager.tabs.current_tab() == 1:
             # refresh only if we're switching to the tab
             self.refresh()
+            self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        else:
+            self._canvas.unbind_all("<MouseWheel>")
 
     def get_status(self, campaign: DropsCampaign) -> tuple[str, str]:
         if campaign.active:
@@ -1406,7 +1570,12 @@ class InventoryOverview:
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
     def _on_mousewheel(self, event: tk.Event[tk.Misc]):
-        delta = -1 if event.delta > 0 else 1
+        if sys.platform == "darwin":
+            delta = -event.delta
+        elif event.delta:
+            delta = -int(event.delta / 120) * 3 or (-1 if event.delta > 0 else 1)
+        else:
+            delta = 0
         state: int = event.state if isinstance(event.state, int) else 0
         if state & 1:
             scroll = self._canvas.xview_scroll
@@ -1487,7 +1656,9 @@ class InventoryOverview:
         ).grid(column=1, row=4, sticky="nw", padx=4)
         # Image
         campaign_image = await self._cache.get(campaign.image_url, size=(108, 144))
-        ttk.Label(campaign_frame, image=campaign_image).grid(column=0, row=1, rowspan=4)
+        camp_lbl = ttk.Label(campaign_frame, image=campaign_image)
+        camp_lbl.image = campaign_image
+        camp_lbl.grid(column=0, row=1, rowspan=4)
         # Drops separator
         ttk.Separator(
             campaign_frame, orient="vertical", takefocus=False
@@ -1496,21 +1667,23 @@ class InventoryOverview:
         drops_row = ttk.Frame(campaign_frame)
         drops_row.grid(column=3, row=0, rowspan=5, sticky="nsew", padx=4)
         drops_row.rowconfigure(0, weight=1)
-        for i, drop in enumerate(campaign.drops):
+        for drop_idx, drop in enumerate(campaign.drops):
             drop_frame = ttk.Frame(drops_row, relief="ridge", borderwidth=1, padding=5)
-            drop_frame.grid(column=i, row=0, padx=4)
+            drop_frame.grid(column=drop_idx, row=0, padx=4)
             benefits_frame = ttk.Frame(drop_frame)
             benefits_frame.grid(column=0, row=0)
             benefit_images: list[PhotoImage] = await asyncio.gather(
                 *(self._cache.get(benefit.image_url, (80, 80)) for benefit in drop.benefits)
             )
-            for i, benefit, image in zip(range(len(drop.benefits)), drop.benefits, benefit_images):
-                ttk.Label(
+            for benefit_idx, (benefit, image) in enumerate(zip(drop.benefits, benefit_images)):
+                b_lbl = ttk.Label(
                     benefits_frame,
                     text=benefit.name,
                     image=image,
                     compound="bottom",
-                ).grid(column=i, row=0, padx=5)
+                )
+                b_lbl.image = image
+                b_lbl.grid(column=benefit_idx, row=0, padx=5)
             self._drops[drop.id] = label = ttk.Label(drop_frame, justify=tk.CENTER)
             self.update_progress(drop, label)
             label.grid(column=0, row=1)
@@ -1613,6 +1786,9 @@ class SettingsPanel:
             PriorityMode.ENDING_SOONEST: _("gui", "settings", "priority_modes", "ending_soonest"),
             PriorityMode.LOW_AVBL_FIRST: _(
                 "gui", "settings", "priority_modes", "low_availability"
+            ),
+            PriorityMode.SHORTEST_TIME_FIRST: _(
+                "gui", "settings", "priority_modes", "shortest_time"
             ),
         }
 
@@ -1780,10 +1956,11 @@ class SettingsPanel:
             center_frame, padding=(4, 0, 4, 4), text=_("gui", "settings", "priority")
         )
         priority_frame.grid(column=1, row=0, rowspan=2, sticky="nsew")
-        self._priority_entry = PlaceholderCombobox(
+        self._priority_entry = AutocompleteCombobox(
             priority_frame, placeholder=_("gui", "settings", "game_name"), width=30
         )
         self._priority_entry.grid(column=0, row=0, sticky="ew")
+        self._priority_entry.bind("<Return>", lambda e: self.priority_add(), add="+")
         priority_frame.columnconfigure(0, weight=1)
         ttk.Button(
             priority_frame, text="➕", command=self.priority_add, width=3, style="Large.TButton"
@@ -1842,10 +2019,11 @@ class SettingsPanel:
             center_frame, padding=(4, 0, 4, 4), text=_("gui", "settings", "exclude")
         )
         exclude_frame.grid(column=2, row=0, rowspan=2, sticky="nsew")
-        self._exclude_entry = PlaceholderCombobox(
+        self._exclude_entry = AutocompleteCombobox(
             exclude_frame, placeholder=_("gui", "settings", "game_name"), width=26
         )
         self._exclude_entry.grid(column=0, row=0, sticky="ew")
+        self._exclude_entry.bind("<Return>", lambda e: self.exclude_add(), add="+")
         ttk.Button(
             exclude_frame, text="➕", command=self.exclude_add, width=3, style="Large.TButton"
         ).grid(column=1, row=0)
@@ -2344,13 +2522,13 @@ class GUIManager:
         # clamp minimum window size (update geometry first)
         root.update_idletasks()
         root.minsize(width=root.winfo_reqwidth(), height=root.winfo_reqheight())
-        # register logging handler
-        self._handler = _TKOutputHandler(self)
+        # register logging handler (lets through all records allowed by configured loggers)
+        self._handler = _TKOutputHandler(self, level=logging.NOTSET)
         self._handler.setFormatter(OUTPUT_FORMATTER)
         logger = logging.getLogger("TwitchDrops")
         logger.addHandler(self._handler)
-        if (logging_level := logger.getEffectiveLevel()) < logging.ERROR:
-            self.print(f"Logging level: {logging.getLevelName(logging_level)}")
+        if self._twitch.settings.logging_level <= logging.INFO or self._twitch.settings.debug_gql or self._twitch.settings.debug_ws:
+            self.print(f"Logging level: {logging.getLevelName(self._twitch.settings.logging_level)}")
         # gracefully handle Windows shutdown closing the application
         if sys.platform == "win32":
             # NOTE: this root.update() is required for the below to work - don't remove
@@ -2432,15 +2610,17 @@ class GUIManager:
 
     async def coro_unless_closed(self, coro: abc.Awaitable[_T]) -> _T:
         # In Python 3.11, we need to explicitly wrap awaitables
-        tasks = [asyncio.ensure_future(coro), asyncio.ensure_future(self._close_requested.wait())]
-        done: set[asyncio.Task[Any]]
-        pending: set[asyncio.Task[Any]]
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        for task in pending:
-            task.cancel()
+        coro_task = asyncio.ensure_future(coro)
+        close_task = asyncio.ensure_future(self._close_requested.wait())
+        try:
+            done, pending = await asyncio.wait([coro_task, close_task], return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for task in (coro_task, close_task):
+                if not task.done():
+                    task.cancel()
         if self._close_requested.is_set():
             raise ExitRequest()
-        return await next(iter(done))
+        return await coro_task
 
     def prevent_close(self):
         self._close_requested.clear()

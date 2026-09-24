@@ -13,7 +13,7 @@ import aiohttp
 from yarl import URL
 
 from utils import Game, json_minify, isonow
-from exceptions import MinerException, RequestException
+from exceptions import MinerException, RequestException, ExitRequest
 from constants import CALL, GQL_QUERIES, ONLINE_DELAY, URLType, GQLQuery
 
 if TYPE_CHECKING:
@@ -45,6 +45,7 @@ class Stream:
 
     @property
     def _watch_payload(self) -> list[JsonType]:
+        auth_state = self.channel._twitch._auth_state
         return [
             {
                 "event": "minute-watched",
@@ -53,6 +54,7 @@ class Stream:
                     "channel_id": str(self.channel.id),
                     "channel": self.channel._login,
                     "client_time": isonow(),
+                    "device_id": auth_state.device_id,
                     "game": self.game.name if self.game is not None else "",
                     "game_id": str(self.game.id) if self.game is not None else "",
                     "hidden": False,
@@ -61,7 +63,9 @@ class Stream:
                     "logged_in": True,
                     "minutes_logged": 1,
                     "muted": False,
-                    "user_id": self.channel._twitch._auth_state.user_id,
+                    "platform": "android_tv",
+                    "player": "android_tv",
+                    "user_id": str(auth_state.user_id),
                 }
             }
         ]
@@ -301,27 +305,10 @@ class Channel:
 
     async def get_spade_url(self) -> URLType:
         """
-        To get this monstrous thing, you have to walk a chain of requests.
-        Streamer page (HTML) --parse-> Streamer Settings (JavaScript) --parse-> Spade URL
-
-        For mobile view, spade_url is available immediately from the page, skipping step #2.
+        Returns Twitch's universal Spade tracking endpoint directly,
+        avoiding unnecessary HTML scraping and network delays.
         """
-        SETTINGS_PATTERN: str = r'src="(https://[\w.]+/config/settings\.[0-9a-f]{32}\.js)"'
-        SPADE_PATTERN: str = r'"spade_?url": ?"(https://[.\w\-/]+)"'
-        async with self._twitch.request("GET", self.url) as response1:
-            streamer_html: str = await response1.text(encoding="utf8")
-        match = re.search(SPADE_PATTERN, streamer_html, re.I)
-        if not match:
-            match = re.search(SETTINGS_PATTERN, streamer_html, re.I)
-            if not match:
-                raise MinerException("Error while spade_url extraction: step #1")
-            streamer_settings = match.group(1)
-            async with self._twitch.request("GET", streamer_settings) as response2:
-                settings_js: str = await response2.text(encoding="utf8")
-            match = re.search(SPADE_PATTERN, settings_js, re.I)
-            if not match:
-                raise MinerException("Error while spade_url extraction: step #2")
-        return URLType(match.group(1))
+        return URLType("https://spade.twitch.tv/track")
 
     def _check_drops_enabled(self, available_drops: list[JsonType]) -> bool:
         return any(
@@ -391,6 +378,10 @@ class Channel:
         try:
             await asyncio.sleep(ONLINE_DELAY.total_seconds())
             await self.update_stream()
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            logger.debug(f"Exception during online delay for {self.name}: {exc}")
         finally:
             self._pending_stream_up = None
 
@@ -489,12 +480,24 @@ class Channel:
         try:
             if self._spade_url is None:
                 self._spade_url = await self.get_spade_url()
+            headers = {
+                "Client-Id": self._twitch._client_type.CLIENT_ID,
+                "X-Device-Id": self._twitch._auth_state.device_id,
+                "Origin": str(self._twitch._client_type.CLIENT_URL),
+                "Referer": str(self.url),
+            }
             async with self._twitch.request(
-                "POST", self._spade_url, data=self._stream.spade_payload
+                "POST", self._spade_url, data=self._stream.spade_payload, headers=headers
             ) as response:
+                if response.status != 204:
+                    logger.warning(
+                        f"Watch payload POST to {self._spade_url} failed with status {response.status}"
+                    )
                 return response.status == 204
+        except ExitRequest:
+            raise
         except (RequestException, MinerException) as exc:
-            logger.debug(f"Failed to send watch payload for {self.name}: {exc}")
+            logger.warning(f"Failed to send watch payload for {self.name}: {exc}")
             self._spade_url = None
             return False
 

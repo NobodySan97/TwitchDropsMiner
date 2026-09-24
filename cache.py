@@ -113,33 +113,39 @@ class ImageCache:
                     except (FileNotFoundError, Image_module.UnidentifiedImageError, OSError):
                         pass
             if image is None:
-                try:
-                    async with self._twitch.request("GET", url) as response:
-                        if response.status != 404:
-                            loaded = Image_module.open(io.BytesIO(await response.read()))
-                            loaded.load()
-                            image = loaded
-                except Exception:
-                    pass
-                if image is None:
-                    # use a blank white image as a fallback
-                    image = Image_module.new("RGB", (10, 10), (255, 255, 255))
+                if url:
+                    try:
+                        async with self._twitch.request("GET", url) as response:
+                            if response.status == 200:
+                                loaded = Image_module.open(io.BytesIO(await response.read()))
+                                loaded.load()
+                                image = loaded
+                    except Exception:
+                        pass
+                is_fallback = image is None
+                if is_fallback:
+                    # use a blank transparent image as a fallback
+                    image = Image_module.new("RGBA", (10, 10), (0, 0, 0, 0))
                 try:
                     img_hash = self._hash(image)
                     self._images[img_hash] = image
-                    image.save(CACHE_PATH / img_hash)
+                    if not is_fallback:
+                        image.save(CACHE_PATH / img_hash)
                 except Exception:
                     img_hash = ImageHash("fallback.png")
-                self._hashes[url] = {
-                    "hash": img_hash,
-                    "expires": self._new_expires()
-                }
-            self._altered = True
+                if not is_fallback and url:
+                    self._hashes[url] = {
+                        "hash": img_hash,
+                        "expires": self._new_expires()
+                    }
+                    self._altered = True
             if size is None:
                 size = image.size
             photo_key = (img_hash, size)
             if photo_key in self._photos:
-                return self._photos[photo_key]
+                photo = self._photos.pop(photo_key)
+                self._photos[photo_key] = photo
+                return photo
             if image.size != size:
                 try:
                     image = image.resize(size, Image_module.Resampling.LANCZOS)
@@ -147,4 +153,10 @@ class ImageCache:
                     # broken image data surfaced during resize; fall back to blank placeholder
                     image = Image_module.new("RGB", size, (255, 255, 255))
             self._photos[photo_key] = photo = PhotoImage(master=self._root, image=image)
+            if len(self._images) > 512:
+                for k in list(self._images.keys())[:64]:
+                    del self._images[k]
+            if len(self._photos) > 512:
+                for k in list(self._photos.keys())[:64]:
+                    del self._photos[k]
             return photo

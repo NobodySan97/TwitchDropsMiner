@@ -4,6 +4,7 @@ import os
 import sys
 import random
 import logging
+import re
 from pathlib import Path
 from copy import deepcopy
 from enum import Enum, auto
@@ -138,12 +139,63 @@ LOGGING_LEVELS = {
     3: CALL,
     4: logging.DEBUG,
 }
-FILE_FORMATTER = logging.Formatter(
-    "{asctime}.{msecs:03.0f}:\t{levelname:>7}:\t{message}",
+class CleanMultilineFormatter(logging.Formatter):
+    """
+    Ensures multiline messages and exception tracebacks are cleanly indented
+    without duplicate timestamps or misaligned lines.
+    """
+    def format(self, record: logging.LogRecord) -> str:
+        formatted = super().format(record)
+        lines = formatted.splitlines()
+        if len(lines) <= 1:
+            return formatted
+        indent = " " * 8
+        return lines[0] + "\n" + "\n".join(f"{indent}{line}" for line in lines[1:])
+
+
+FILE_FORMATTER = CleanMultilineFormatter(
+    "{asctime}.{msecs:03.0f} [{levelname:<7}] [{name}] {message}",
     style='{',
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-OUTPUT_FORMATTER = logging.Formatter("{levelname}: {message}", style='{', datefmt="%H:%M:%S")
+OUTPUT_FORMATTER = CleanMultilineFormatter(
+    "{asctime}: {levelname}: {message}",
+    style='{',
+    datefmt="%H:%M:%S",
+)
+
+# Token Sanitization Patterns
+SENSITIVE_PATTERNS = [
+    (re.compile(r'(["\']?auth[-_]?token["\']?\s*[:=]\s*["\']?)([a-zA-Z0-9_\-\.]{5})([a-zA-Z0-9_\-\.]+)(["\']?)'), r'\g<1>\g<2>...***\g<4>'),
+    (re.compile(r'((?:OAuth|Bearer)\s+)([a-zA-Z0-9]{5})([a-zA-Z0-9]+)', re.IGNORECASE), r'\g<1>\g<2>...***'),
+    (re.compile(r'(auth-token=)([a-zA-Z0-9]{5})([a-zA-Z0-9]+)'), r'\g<1>\g<2>...***'),
+    (re.compile(r'([?&](?:token|sig)=)([a-zA-Z0-9%_-]{5})([a-zA-Z0-9%_.-]+)'), r'\g<1>\g<2>...***'),
+]
+
+
+class SanitizingFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            for pattern, replacement in SENSITIVE_PATTERNS:
+                record.msg = pattern.sub(replacement, record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {
+                    k: (self._sanitize_str(v) if isinstance(v, str) else v)
+                    for k, v in record.args.items()
+                }
+            elif isinstance(record.args, tuple):
+                record.args = tuple(
+                    self._sanitize_str(arg) if isinstance(arg, str) else arg
+                    for arg in record.args
+                )
+        return True
+
+    @staticmethod
+    def _sanitize_str(val: str) -> str:
+        for pattern, replacement in SENSITIVE_PATTERNS:
+            val = pattern.sub(replacement, val)
+        return val
 
 
 class ClientInfo:
@@ -243,7 +295,7 @@ class ClientType:
         URL("https://android.tv.twitch.tv"),
         "ue6666qo983tsx6so1t0vnawi233wa",
         (
-            "Mozilla/5.0 (Linux; Android 7.1; Smart Box C1) AppleWebKit/537.36 "
+            "Mozilla/5.0 (Linux; Android 12; SMART_BOX Build/SQ3A.220705.004) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
         ),
     )
@@ -264,6 +316,7 @@ class PriorityMode(Enum):
     PRIORITY_ONLY = 0
     ENDING_SOONEST = 1
     LOW_AVBL_FIRST = 2
+    SHORTEST_TIME_FIRST = 3
 
 
 class GQLQuery(JsonType):

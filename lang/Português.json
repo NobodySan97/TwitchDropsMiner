@@ -90,9 +90,9 @@
         "channels": {
             "name": "Canais",
             "switch": "Trocar",
-            "online": "ONLINE  \u2714",
-            "pending": "OFFLINE \u23f3",
-            "offline": "OFFLINE \u274c",
+            "online": "ONLINE  ✔",
+            "pending": "OFFLINE ⏳",
+            "offline": "OFFLINE ❌",
             "headings": {
                 "channel": "Canal",
                 "status": "Status",
@@ -112,13 +112,13 @@
                 "refresh": "Atualizar"
             },
             "status": {
-                "linked": "Conectado \u2714",
-                "not_linked": "Desconectado \u274c",
-                "active": "Ativo \u2714",
-                "upcoming": "Se aproximando \u23f3",
-                "expired": "Expirado \u274c",
-                "claimed": "Coletado \u2714",
-                "ready_to_claim": "Pronto para coleta \u23f3"
+                "linked": "Conectado ✔",
+                "not_linked": "Desconectado ❌",
+                "active": "Ativo ✔",
+                "upcoming": "Se aproximando ⏳",
+                "expired": "Expirado ❌",
+                "claimed": "Coletado ✔",
+                "ready_to_claim": "Pronto para coleta ⏳"
             },
             "starts": "Começa em: {time}",
             "ends": "Termina em: {time}",
@@ -135,14 +135,27 @@
                 "tray": "Auto-iniciar na área de notificação: ",
                 "tray_notifications": "Notificações: ",
                 "dark_mode": "Modo escuro: ",
-                "priority_only": "Apenas com prioridade: ",
-                "proxy": "Proxy (requer o reinício do app):"
+                "proxy": "Proxy (requer o reinício do app):",
+                "priority_mode": "Modo de prioridade: "
             },
             "game_name": "Nome do jogo",
             "priority": "Prioridade",
             "exclude": "Excluir",
             "reload": "Recarregar",
-            "reload_text": "A maioria das mudanças requer o reinício do app para serem efetivadas: "
+            "reload_text": "A maioria das mudanças requer o reinício do app para serem efetivadas: ",
+            "priority_modes": {
+                "priority_only": "Apenas lista de prioridade",
+                "ending_soonest": "Terminando em breve",
+                "low_availability": "Baixa disponibilidade primeiro",
+                "shortest_time": "Menor tempo de exibição primeiro"
+            },
+            "advanced": {
+                "name": "Avançado",
+                "warning": "Aviso!",
+                "warning_text": "Estas opções podem fazer com que o minerador se comporte incorretamente.\nSe você estiver enfrentando problemas, verifique se todas essas opções estão desativadas.",
+                "enable_badges_emotes": "Ativar suporte parcial para emblemas e emotes: ",
+                "available_drops_check": "Ativar verificação extra de drops disponíveis: "
+            }
         },
         "help": {
             "links": {
@@ -153,7 +166,11 @@
             "how_it_works": "Como funciona",
             "how_it_works_text": "A cada 60 segundos, o app envia um event \"minute watched\" ao canal que está sendo assistido no momento - Isso é o suficiente para avançar o progresso dos drops. Note que esse modo evita a necessidade de baixar o áudio e vídeo da stream, como é feito tradicionalmente quando se utiliza um navegador web. Para manter atualizado o status do canal (ONLINE ou OFFLINE), é estabelecida uma conexão websocket, que recebe diversos eventos relacionados a stream atual, como: se ela está ligada ou desligada, ou número total de espectadores.",
             "getting_started": "Iniciando",
-            "getting_started_text": "1. Autentique-se no app com a sua conta da Twitch.\n2. Certifique-se que todas campanhas estão conectadas com as contas dos respectivos aplicativos.\n3. Se quiser coletar tudo, desmarque \"Apenas com Prioridade\" e clique em \"Recarregar\".\n4. Se quiser coletar apenas de certos jogos, use a lista \"Prioridade\" para configurar a lista de jogos que você quer coletar. A lista segue a ordem que é apresentada, do primeiro ao último, sendo assim, a coleta continuará para os jogos seguintes assim que o jogo anterior esteja completo.\n5. Mantenha a opção \"Priority only\" ativa, para evitar que a coleta ocorra em jogos que não estão na lista de prioridades. Ou não - você quem manda.\n6. Use a lista \"Excluir\" para jogos que NUNCA devam ser coletados.\n7. Qualquer mudança feita nas listas requer que você clique no botão \"Recarregar\" para que as mudanças tenham efeito."
+            "getting_started_text": "1. Autentique-se no app com a sua conta da Twitch.\n2. Certifique-se que todas campanhas estão conectadas com as contas dos respectivos aplicativos.\n3. Se quiser coletar tudo, desmarque \"Apenas com Prioridade\" e clique em \"Recarregar\".\n4. Se quiser coletar apenas de certos jogos, use a lista \"Prioridade\" para configurar a lista de jogos que você quer coletar. A lista segue a ordem que é apresentada, do primeiro ao último, sendo assim, a coleta continuará para os jogos seguintes assim que o jogo anterior esteja completo.\n5. Mantenha a opção \"Priority only\" ativa, para evitar que a coleta ocorra em jogos que não estão na lista de prioridades. Ou não - você quem manda.\n6. Use a lista \"Excluir\" para jogos que NUNCA devam ser coletados.\n7. Qualquer mudança feita nas listas requer que você clique no botão \"Recarregar\" para que as mudanças tenham efeito.",
+            "invalidate": {
+                "button": "Invalidar",
+                "text": "Invalidar o token de autenticação (encerrar sessão):"
+            }
         }
     }
 }

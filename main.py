@@ -28,7 +28,10 @@ if __name__ == "__main__":
     from version import __version__
     from exceptions import CaptchaRequired
     from utils import lock_file, resource_path, set_root_icon
-    from constants import LOGGING_LEVELS, SELF_PATH, FILE_FORMATTER, LOG_PATH, LOCK_PATH
+    from constants import (
+        LOGGING_LEVELS, SELF_PATH, FILE_FORMATTER, LOG_PATH, LOCK_PATH,
+        SanitizingFilter, IS_PACKAGED
+    )
 
     if TYPE_CHECKING:
         from _typeshed import SupportsWrite
@@ -95,6 +98,13 @@ if __name__ == "__main__":
                 return logging.INFO
             return logging.NOTSET
 
+    if sys.platform == "win32":
+        import ctypes
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("devilxd.twitchdropsminer")
+        except Exception:
+            pass
+
     # handle input parameters
     # NOTE: parser output is shown via message box
     # we also need a dummy invisible window for the parser
@@ -143,19 +153,42 @@ if __name__ == "__main__":
             # this language doesn't exist - stick to English
             pass
 
-        # handle logging stuff
-        if settings.logging_level > logging.DEBUG:
-            # redirect the root logger into a NullHandler, effectively ignoring all logging calls
-            # that aren't ours. This always runs, unless the main logging level is DEBUG or lower.
-            logging.getLogger().addHandler(logging.NullHandler())
+        # Determine effective core logging level:
+        # If any debug flag is set (--debug-gql, --debug-ws, -vvvv), enable DEBUG (10).
+        if (
+            settings.debug_gql == logging.DEBUG
+            or settings.debug_ws == logging.DEBUG
+            or settings.logging_level <= logging.DEBUG
+        ):
+            effective_level = logging.DEBUG
+        elif settings._verbose == 0:
+            effective_level = logging.INFO
+        else:
+            effective_level = settings.logging_level
+
         logger = logging.getLogger("TwitchDrops")
-        logger.setLevel(settings.logging_level)
+        logger.setLevel(effective_level)
+        logger.addFilter(SanitizingFilter())
+
         if settings.log:
-            handler = logging.FileHandler(LOG_PATH)
+            from logging.handlers import RotatingFileHandler
+            handler = RotatingFileHandler(
+                LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"
+            )
+            handler.setLevel(settings.logging_level)
             handler.setFormatter(FILE_FORMATTER)
+            handler.addFilter(SanitizingFilter())
             logger.addHandler(handler)
+
         logging.getLogger("TwitchDrops.gql").setLevel(settings.debug_gql)
         logging.getLogger("TwitchDrops.websocket").setLevel(settings.debug_ws)
+
+        import platform
+        proxy_info = f"{settings.proxy.host}:{settings.proxy.port}" if settings.proxy.host else "Direct"
+        logger.info(
+            f"Twitch Drops Miner v{__version__} | Python {platform.python_version()} on {sys.platform} | "
+            f"Mode: {settings.priority_mode.name} | Lang: {settings.language} | Proxy: {proxy_info}"
+        )
 
         exit_status = 0
         client = Twitch(settings)
@@ -174,8 +207,17 @@ if __name__ == "__main__":
         except Exception:
             exit_status = 1
             client.prevent_close()
-            client.print("Fatal error encountered:\n")
-            client.print(traceback.format_exc())
+            watching = client.watching_channel.get_with_default(None)
+            watching_name = watching.name if watching else "None"
+            state_name = client._state.name if hasattr(client, "_state") else "Unknown"
+            crash_diag = (
+                f"Fatal error encountered:\n"
+                f"Version: v{__version__} (Packaged: {IS_PACKAGED}) | OS: {sys.platform}\n"
+                f"State: {state_name} | Watching: {watching_name}\n"
+                f"Last GQL Op: {getattr(client, '_last_gql_op', 'None')}\n\n"
+                f"{traceback.format_exc()}"
+            )
+            logger.error(crash_diag)
         finally:
             if sys.platform == "linux":
                 loop.remove_signal_handler(signal.SIGINT)

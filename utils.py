@@ -43,6 +43,11 @@ def set_root_icon(root: tk.Tk, image_path: Path | str) -> None:
     root.iconphoto(True, icon_photo)  # type: ignore[arg-type]
     # keep a reference to the PhotoImage to avoid the ResourceWarning
     root._icon_image = icon_photo  # type: ignore[attr-defined]
+    if sys.platform == "win32":
+        try:
+            root.iconbitmap(default=str(image_path))
+        except Exception:
+            pass
 
 
 async def first_to_complete(coros: abc.Iterable[abc.Coroutine[Any, Any, _T]]) -> _T:
@@ -104,9 +109,12 @@ def json_minify(data: JsonType | list[JsonType]) -> str:
 
 def timestamp(string: str) -> datetime:
     try:
-        return datetime.strptime(string, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(string.replace("Z", "+00:00"))
     except ValueError:
-        return datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        try:
+            return datetime.strptime(string, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
 def isonow() -> str:
@@ -434,6 +442,8 @@ class AwaitableValue(Generic[_T]):
 
     def clear(self) -> None:
         self._event.clear()
+        if hasattr(self, "_value"):
+            del self._value
 
 
 class Game:
@@ -441,8 +451,8 @@ class Game:
 
     def __init__(self, data: JsonType):
         self.id: int = int(data["id"])
-        self.name: str = data.get("displayName") or data["name"]
-        if "slug" in data:
+        self.name: str = data.get("displayName") or data.get("name") or ""
+        if data.get("slug"):
             self.slug = data["slug"]
 
     def __str__(self) -> str:
@@ -464,6 +474,8 @@ class Game:
         """
         Converts the game name into a slug, useable for the GQL API.
         """
+        if not self.name:
+            return ""
         # remove specific characters
         slug_text = re.sub(r'\'', '', self.name.lower())
         # remove non alpha-numeric characters

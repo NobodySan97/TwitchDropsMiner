@@ -90,9 +90,9 @@
         "channels": {
             "name": "Kanaler",
             "switch": "Skift",
-            "online": "ONLINE  \u2714",
-            "pending": "OFFLINE \u23f3",
-            "offline": "OFFLINE \u274c",
+            "online": "ONLINE  ✔",
+            "pending": "OFFLINE ⏳",
+            "offline": "OFFLINE ❌",
             "headings": {
                 "channel": "Kanal",
                 "status": "Status",
@@ -112,13 +112,13 @@
                 "refresh": "Opdater"
             },
             "status": {
-                "linked": "Forbundet \u2714",
-                "not_linked": "Ikke forbundet \u274c",
-                "active": "Aktiv \u2714",
-                "upcoming": "Kommende \u23f3",
-                "expired": "Udløbet \u274c",
-                "claimed": "Hentet \u2714",
-                "ready_to_claim": "Klar til at hente \u23f3"
+                "linked": "Forbundet ✔",
+                "not_linked": "Ikke forbundet ❌",
+                "active": "Aktiv ✔",
+                "upcoming": "Kommende ⏳",
+                "expired": "Udløbet ❌",
+                "claimed": "Hentet ✔",
+                "ready_to_claim": "Klar til at hente ⏳"
             },
             "starts": "Starter: {time}",
             "ends": "Slutter: {time}",
@@ -134,15 +134,28 @@
                 "autostart": "Automatisk start: ",
                 "tray": "Automatisk start i systembakken: ",
                 "tray_notifications": "Bakkemeddelelser: ",
-                "priority_only": "Kun prioritet: ",
                 "dark_mode": "Mørk tilstand: ",
-                "proxy": "Proxy (kræver genstart):"
+                "proxy": "Proxy (kræver genstart):",
+                "priority_mode": "Prioritetstilstand: "
             },
             "game_name": "Spilnavn",
             "priority": "Prioritet",
             "exclude": "Udelukke",
             "reload": "Genindlæs",
-            "reload_text": "De fleste ændringer kræver en genindlæsning for at få en øjeblikkelig virkning: "
+            "reload_text": "De fleste ændringer kræver en genindlæsning for at få en øjeblikkelig virkning: ",
+            "priority_modes": {
+                "priority_only": "Kun prioritetsliste",
+                "ending_soonest": "Slutter snart",
+                "low_availability": "Lav tilgængelighed først",
+                "shortest_time": "Korteste visningstid først"
+            },
+            "advanced": {
+                "name": "Avanceret",
+                "warning": "Advarsel!",
+                "warning_text": "Disse indstillinger kan få mineren til at opføre sig forkert.\nHvis du oplever problemer, skal du sørge for, at alle disse indstillinger er deaktiveret.",
+                "enable_badges_emotes": "Aktivér delvis understøttelse af badges og humørikoner: ",
+                "available_drops_check": "Aktivér ekstra kontrol af tilgængelige drops: "
+            }
         },
         "help": {
             "links": {
@@ -153,7 +166,11 @@
             "how_it_works": "Hvordan virker det?",
             "how_it_works_text": "Hvert ~60. sekund sender applikationen en \"set minut\"-begivenhed til den kanal, der i øjeblikket bliver set - dette er nok til at øge faldet. Bemærk, at dette helt omgår behovet for at downloade enhver faktisk stream video og lyd. For at holde status (ONLINE eller OFFLINE) for kanalerne opdateret, er der etableret en websocket-forbindelse, der modtager begivenheder om streams, der går op eller ned, eller opdateringer vedrørende det aktuelle antal seere.",
             "getting_started": "Kom igang",
-            "getting_started_text": "1. Log ind på applikationen.\n2. Sørg for, at din Twitch-konto er linket til alle kampagner, du er interesseret i at mine.\n3. Hvis du bare er interesseret i at mine alt, skal du fjerne markeringen i \"Kun prioritet\" og trykke på \"Genindlæs\".\n4. Hvis du ønsker at mine specifikke spil først, skal du bruge listen \"Prioritet\" til at opsætte en ordnet liste over spil efter eget valg. Spil fra toppen af ​​listen vil blive forsøgt at blive minet først, før dem nederst på listen.\n5. Hold indstillingen \"Kun prioritet\" markeret for at undgå at mine spil, der ikke er på prioritetslisten. Eller ej - det er op til dig.\n6. Brug listen \"Ekskluder\" til at fortælle applikationen, hvilke spil der aldrig bør mines.\n7. Ændring af indholdet af en af ​​listerne eller ændring af tilstanden for \"Kun prioritet\"-indstillingen kræver, at du trykker på \"Genindlæs\" for at ændringerne træder i kraft."
+            "getting_started_text": "1. Log ind på applikationen.\n2. Sørg for, at din Twitch-konto er linket til alle kampagner, du er interesseret i at mine.\n3. Hvis du bare er interesseret i at mine alt, skal du fjerne markeringen i \"Kun prioritet\" og trykke på \"Genindlæs\".\n4. Hvis du ønsker at mine specifikke spil først, skal du bruge listen \"Prioritet\" til at opsætte en ordnet liste over spil efter eget valg. Spil fra toppen af ​​listen vil blive forsøgt at blive minet først, før dem nederst på listen.\n5. Hold indstillingen \"Kun prioritet\" markeret for at undgå at mine spil, der ikke er på prioritetslisten. Eller ej - det er op til dig.\n6. Brug listen \"Ekskluder\" til at fortælle applikationen, hvilke spil der aldrig bør mines.\n7. Ændring af indholdet af en af ​​listerne eller ændring af tilstanden for \"Kun prioritet\"-indstillingen kræver, at du trykker på \"Genindlæs\" for at ændringerne træder i kraft.",
+            "invalidate": {
+                "button": "Ugyldiggør",
+                "text": "Ugyldiggør godkendelsestoken (log ud):"
+            }
         }
     }
 }
