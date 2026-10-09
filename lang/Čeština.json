@@ -85,7 +85,10 @@
             "campaign": "Kampaň:",
             "remaining": "Zbývá {time}",
             "drop_progress": "Průběh dropu:",
-            "campaign_progress": "Průběh kampaňe:"
+            "campaign_progress": "Průběh kampaňe:",
+            "total_queue": "Celková fronta:",
+            "total_remaining": "{time} ({games} her)",
+            "total_remaining_singular": "{time} ({games} hra)"
         },
         "channels": {
             "name": "Název",

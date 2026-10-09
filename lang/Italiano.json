@@ -85,7 +85,10 @@
             "campaign": "Campagna:",
             "remaining": "{time} rimanenti",
             "drop_progress": "Progresso:",
-            "campaign_progress": "Progresso:"
+            "campaign_progress": "Progresso:",
+            "total_queue": "Coda totale:",
+            "total_remaining": "{time} ({games} giochi)",
+            "total_remaining_singular": "{time} ({games} gioco)"
         },
         "channels": {
             "name": "Canali",
@@ -164,9 +167,9 @@
                 "campaigns": "Vedi tutte le campagne e gestisci i collegamenti dell'account"
             },
             "how_it_works": "Come funziona",
-            "how_it_works_text": "Ogni ~60 secondi, l'applicazione invia un evento \"minuto guardato\" al canale che stai guardando - questo è sufficiente per far avanzare il progresso dei drop. Da notare che questo bypassa completamente la necessità di scaricare qualsiasi video o audio della diretta. Per mantenere lo stato (ONLINE o OFFLINE) dei canali aggiornato, c'è una connessione websocket stabilita che riceve eventi sui canali che vanno online o offline, o aggiornamenti riguardanti il numero attuale di spettatori.",
+            "how_it_works_text": "Ogni qualche secondo, l'applicazione simula la visione di una determinata diretta recuperando i metadati dello streaming - questo è sufficiente per far avanzare il progresso dei drop. Da notare che questo bypassa completamente la necessità di scaricare qualsiasi flusso video o audio. Per mantenere lo stato (ONLINE o OFFLINE) dei canali aggiornato, è stabilita una connessione websocket che riceve eventi sulle dirette che vanno online o offline, o aggiornamenti riguardanti il numero attuale di spettatori.",
             "getting_started": "Per iniziare",
-            "getting_started_text": "1. Effettua il login nell'applicazione.\n2. Assicurati che il tuo account Twitch sia collegato a tutte le campagne per cui sei interessato a ottenere i drop.\n3. Se sei interessato a ottenere tutto, deseleziona \"Solo priorità\" e premi su \"Ricarica\".\n4. Se vuoi ottenere prima giochi specifici, usa la lista \"Priorità\" per impostare una lista ordinata di giochi a tua scelta. I giochi in cima alla lista verranno ottenuti prima.\n5. Mantieni l'opzione \"Solo priorità\" selezionata, per evitare di ottenere giochi che non sono nella lista delle priorità. Oppure non farlo - dipende da te.\n6. Usa la lista \"Escludi\" per dire all'applicazione quali giochi non devono mai essere ottenuti.\n7. Cambiare il contenuto di una delle liste, o cambiare lo stato dell'opzione \"Solo priorità\", richiede di premere su \"Ricarica\" perché le modifiche abbiano effetto.",
+            "getting_started_text": "1. Effettua il login nell'applicazione.\n2. Assicurati che il tuo account Twitch sia collegato a tutte le campagne per cui ti interessa ottenere i drop.\n3. Se ti interessa ottenere tutto il possibile, imposta la Modalità priorità su un'opzione diversa da \"Solo lista priorità\" e premi \"Ricarica\".\n4. Se vuoi ottenere prima giochi specifici, usa la lista \"Priorità\" per impostare una lista ordinata di giochi a tua scelta. I giochi in cima alla lista verranno eseguiti per primi.\n5. Mantieni la \"Modalità priorità\" impostata su \"Solo lista priorità\" per evitare di ottenere giochi non inclusi nella lista. Oppure cambiala: dipende da te.\n6. Usa la lista \"Escludi\" per indicare all'applicazione quali giochi non devono mai essere ottenuti.\n7. Modificare il contenuto di una delle liste, o cambiare la \"Modalità priorità\", richiede di premere \"Ricarica\" per rendere effettive le modifiche.",
             "invalidate": {
                 "button": "Invalida",
                 "text": "Invalida il token di autenticazione (disconnetti):"

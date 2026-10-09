@@ -85,7 +85,10 @@
             "campaign": "Campagne:",
             "remaining": "{time} resterend",
             "drop_progress": "Voortgang:",
-            "campaign_progress": "Voortgang:"
+            "campaign_progress": "Voortgang:",
+            "total_queue": "Totale wachtrij:",
+            "total_remaining": "{time} ({games} spellen)",
+            "total_remaining_singular": "{time} ({games} spel)"
         },
         "channels": {
             "name": "Kanaal",

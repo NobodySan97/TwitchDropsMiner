@@ -8,8 +8,10 @@ import ctypes
 import asyncio
 import logging
 import plistlib
+import threading
 import tkinter as tk
 from pathlib import Path
+from contextlib import suppress
 from collections import abc
 from textwrap import dedent
 from math import log10, ceil
@@ -18,7 +20,7 @@ from tkinter.font import Font, nametofont
 from functools import partial, cached_property
 from datetime import datetime, timedelta, timezone
 from tkinter import Tk, ttk, StringVar, DoubleVar, IntVar
-from typing import Any, Union, Tuple, TypedDict, NoReturn, Generic, TYPE_CHECKING
+from typing import Any, Union, Tuple, TypedDict, NoReturn, TYPE_CHECKING
 
 import pystray
 from yarl import URL
@@ -26,7 +28,6 @@ from PIL.ImageTk import PhotoImage
 from PIL import Image as Image_module
 
 if sys.platform == "win32":
-    import win32api
     import win32con
     import win32gui
 
@@ -35,7 +36,7 @@ if sys.platform == "darwin":
 
 from translate import _
 from cache import ImageCache
-from exceptions import MinerException, ExitRequest
+from exceptions import ExitRequest
 from utils import resource_path, set_root_icon, webopen, task_wrapper, Game, _T
 from constants import (
     MAX_INT,
@@ -49,7 +50,6 @@ from constants import (
     OUTPUT_FORMATTER,
     State,
     PriorityMode,
-    LOG_PATH,
 )
 if sys.platform == "win32":
     from registry import RegistryKey, ValueType, ValueNotFound
@@ -80,7 +80,10 @@ class _TKOutputHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         try:
             msg = self.format(record)
-            self._output.print(msg)
+            if threading.current_thread() is threading.main_thread():
+                self._output.print(msg)
+            elif hasattr(self._output, "_root") and self._output._root:
+                self._output._root.after(0, self._output.print, msg)
         except Exception:
             self.handleError(record)
 
@@ -506,41 +509,6 @@ class LinkLabel(ttk.Label):
         self.bind("<ButtonRelease-1>", lambda e: webopen(self._link))
 
 
-class SelectMenu(tk.Menubutton, Generic[_T]):
-    def __init__(
-        self,
-        master: tk.Misc,
-        *args: Any,
-        tearoff: bool = False,
-        options: dict[str, _T],
-        command: abc.Callable[[_T], Any] | None = None,
-        default: str | None = None,
-        relief: tk._Relief = "solid",
-        background: str = "white",
-        **kwargs: Any,
-    ):
-        width = max((len(k) for k in options.keys()), default=20)
-        super().__init__(
-            master, *args, background=background, relief=relief, width=width, **kwargs
-        )
-        self._menu_options: dict[str, _T] = options
-        self._command = command
-        self.menu = tk.Menu(self, tearoff=tearoff)
-        self.config(menu=self.menu)
-        for name in options.keys():
-            self.menu.add_command(label=name, command=partial(self._select, name))
-        if default is not None and default in self._menu_options:
-            self.config(text=default)
-
-    def _select(self, option: str) -> None:
-        self.config(text=option)
-        if self._command is not None:
-            self._command(self._menu_options[option])
-
-    def get(self) -> _T:
-        return self._menu_options[self.cget("text")]
-
-
 class SelectCombobox(ttk.Combobox):
     def __init__(
         self,
@@ -778,7 +746,7 @@ class _ProgressVars(TypedDict):
 
 class CampaignProgress:
     BAR_LENGTH = 420
-    ALMOST_DONE_SECONDS = 10
+    ALMOST_DONE_SECONDS = 20
 
     def __init__(self, manager: GUIManager, master: ttk.Widget):
         self._manager = manager
@@ -848,9 +816,10 @@ class CampaignProgress:
         self.display(None)
 
     def _divmod(self, minutes: int) -> tuple[int, int]:
+        minutes = max(0, minutes)
         if self._seconds < 60 and minutes > 0:
             minutes -= 1
-        hours, minutes = divmod(minutes, 60)
+        hours, minutes = divmod(max(0, minutes), 60)
         return (hours, minutes)
 
     def _update_time(self, seconds: int | None = None):
@@ -876,15 +845,33 @@ class CampaignProgress:
         )
 
     async def _timer_loop(self):
-        self._update_time(60)
-        while self._seconds > 0:
-            await asyncio.sleep(1)
-            self._seconds -= 1
-            self._update_time()
-        self._timer_task = None
+        try:
+            self._update_time(60)
+            while self._seconds > 0:
+                await asyncio.sleep(1)
+                self._seconds -= 1
+                self._update_time()
+
+            # At 00:00, immediately fetch the new minute so the countdown rolls over seamlessly
+            for _attempt in range(4):
+                try:
+                    if hasattr(self._manager, "_twitch") and await self._manager._twitch.check_drop_progress():
+                        return
+                except Exception:
+                    pass
+                await asyncio.sleep(3)
+
+            # Fallback if Twitch server is delayed: bump minutes
+            if self._drop is not None and hasattr(self._manager, "_twitch"):
+                ch = self._manager._twitch.watching_channel.get_with_default(None)
+                self._drop.campaign.bump_minutes(ch)
+        finally:
+            cur_task = asyncio.current_task()
+            if self._timer_task is cur_task:
+                self._timer_task = None
 
     def start_timer(self):
-        if self._timer_task is None:
+        if self._timer_task is None or self._timer_task.done():
             if self._drop is None or self._drop.remaining_minutes <= 0:
                 # if we're starting the timer at 0 drop minutes,
                 # all we need is a single instant time update setting seconds to 60,
@@ -897,6 +884,10 @@ class CampaignProgress:
         if self._timer_task is not None:
             self._timer_task.cancel()
             self._timer_task = None
+
+    @property
+    def timer_running(self) -> bool:
+        return self._timer_task is not None and not self._timer_task.done()
 
     def minute_almost_done(self) -> bool:
         # already or almost done
@@ -977,9 +968,10 @@ class ConsoleOutput:
         except tk.TclError:
             return "break"
         if selected:
-            self._manager._root.clipboard_clear()
-            self._manager._root.clipboard_append(selected)
-            self._manager._root.update_idletasks()
+            with suppress(tk.TclError):
+                self._manager._root.clipboard_clear()
+                self._manager._root.clipboard_append(selected)
+                self._manager._root.update_idletasks()
         return "break"
 
     def _copy_selection_shortcut(self, event: tk.Event[tk.Text]) -> str | None:
@@ -1374,7 +1366,8 @@ class TrayIcon:
             async def notifier():
                 icon.notify(message, title)
                 await asyncio.sleep(duration)
-                icon.remove_notification()
+                with suppress(Exception):
+                    icon.remove_notification()
 
             return asyncio.create_task(notifier())
         return None
@@ -1496,10 +1489,8 @@ class InventoryOverview:
         self._canvas.configure(xscrollcommand=xscroll.set, yscrollcommand=yscroll.set)
         self._canvas.bind("<Configure>", self._canvas_update)
         self._main_frame = ttk.Frame(self._canvas)
-        self._canvas.bind(
-            "<Enter>", lambda e: self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        )
-        self._canvas.bind("<Leave>", lambda e: self._canvas.unbind_all("<MouseWheel>"))
+        self._canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self._main_frame.bind("<MouseWheel>", self._on_mousewheel)
         self._canvas.create_window(0, 0, anchor="nw", window=self._main_frame)
         self._campaigns: dict[DropsCampaign, CampaignDisplay] = {}
         self._drops: dict[str, ttk.Label] = {}
@@ -1539,9 +1530,6 @@ class InventoryOverview:
         if self._manager.tabs.current_tab() == 1:
             # refresh only if we're switching to the tab
             self.refresh()
-            self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        else:
-            self._canvas.unbind_all("<MouseWheel>")
 
     def get_status(self, campaign: DropsCampaign) -> tuple[str, str]:
         if campaign.active:
@@ -1656,6 +1644,8 @@ class InventoryOverview:
         ).grid(column=1, row=4, sticky="nw", padx=4)
         # Image
         campaign_image = await self._cache.get(campaign.image_url, size=(108, 144))
+        if not campaign_frame.winfo_exists():
+            return
         camp_lbl = ttk.Label(campaign_frame, image=campaign_image)
         camp_lbl.image = campaign_image
         camp_lbl.grid(column=0, row=1, rowspan=4)
@@ -1675,6 +1665,8 @@ class InventoryOverview:
             benefit_images: list[PhotoImage] = await asyncio.gather(
                 *(self._cache.get(benefit.image_url, (80, 80)) for benefit in drop.benefits)
             )
+            if not campaign_frame.winfo_exists():
+                return
             for benefit_idx, (benefit, image) in enumerate(zip(drop.benefits, benefit_images)):
                 b_lbl = ttk.Label(
                     benefits_frame,
@@ -1757,6 +1749,7 @@ def proxy_validate(entry: PlaceholderEntry, settings: Settings) -> bool:
     if not valid:
         entry.clear()
         url = URL()
+        entry.after_idle(lambda: entry.config(validate="focusout"))
     settings.proxy = url
     return valid
 
@@ -2096,16 +2089,18 @@ class SettingsPanel:
 
     def _query_autostart(self) -> bool:
         if sys.platform == "win32":
-            with RegistryKey(self.AUTOSTART_KEY, read_only=True) as key:
-                try:
-                    value_type, value = key.get(self.AUTOSTART_NAME)
-                except ValueNotFound:
-                    return False
-                # TODO: Consider deleting the old value to avoid autostart errors
-                return (
-                    value_type is ValueType.REG_SZ
-                    and self._get_self_path() in value
-                )
+            try:
+                with RegistryKey(self.AUTOSTART_KEY, read_only=True) as key:
+                    try:
+                        value_type, value = key.get(self.AUTOSTART_NAME)
+                    except ValueNotFound:
+                        return False
+                    return (
+                        value_type is ValueType.REG_SZ
+                        and self._get_self_path() in value
+                    )
+            except (OSError, Exception):
+                return False
         elif sys.platform == "linux":
             autostart_file: Path = self._get_linux_autostart_filepath()
             if not autostart_file.exists():
@@ -2124,16 +2119,19 @@ class SettingsPanel:
         enabled = bool(self._vars["autostart"].get())
         self._settings.autostart_tray = bool(self._vars["tray"].get())
         if sys.platform == "win32":
-            if enabled:
-                with RegistryKey(self.AUTOSTART_KEY) as key:
-                    key.set(
-                        self.AUTOSTART_NAME,
-                        ValueType.REG_SZ,
-                        self._get_autostart_path(),
-                    )
-            else:
-                with RegistryKey(self.AUTOSTART_KEY) as key:
-                    key.delete(self.AUTOSTART_NAME, silent=True)
+            try:
+                if enabled:
+                    with RegistryKey(self.AUTOSTART_KEY) as key:
+                        key.set(
+                            self.AUTOSTART_NAME,
+                            ValueType.REG_SZ,
+                            self._get_autostart_path(),
+                        )
+                else:
+                    with RegistryKey(self.AUTOSTART_KEY) as key:
+                        key.delete(self.AUTOSTART_NAME, silent=True)
+            except (OSError, Exception) as exc:
+                logger.warning(f"Failed to update Windows autostart registry key: {exc}")
         elif sys.platform == "linux":
             autostart_file: Path = self._get_linux_autostart_filepath()
             if enabled:
@@ -2536,8 +2534,6 @@ class GUIManager:
             self._message_map = {
                 # window close request
                 win32con.WM_CLOSE: self.close,
-                # shutdown request
-                win32con.WM_QUERYENDSESSION: self.close,
             }
             # This hooks up the wnd_proc function as the message processor for the root window.
             self.old_wnd_proc = win32gui.SetWindowLong(
@@ -2586,11 +2582,17 @@ class GUIManager:
         This function serves as a message processor for all messages sent
         to the application by Windows.
         """
-        if msg == win32con.WM_DESTROY:
-            win32api.SetWindowLong(self._handle, win32con.GWL_WNDPROC, self.old_wnd_proc)
-        if msg in self._message_map:
-            return self._message_map[msg](w_param, l_param)
-        return win32gui.CallWindowProc(self.old_wnd_proc, hwnd, msg, w_param, l_param)
+        try:
+            if msg == win32con.WM_QUERYENDSESSION:
+                with suppress(Exception):
+                    ctypes.windll.user32.ShutdownBlockReasonDestroy(self._handle)
+                self.close()
+                return 1
+            if msg in self._message_map:
+                return self._message_map[msg](w_param, l_param)
+            return win32gui.CallWindowProc(self.old_wnd_proc, hwnd, msg, w_param, l_param)
+        except Exception:
+            return 0
 
     @cached_property
     def _handle(self) -> int:

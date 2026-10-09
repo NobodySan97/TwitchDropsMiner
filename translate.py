@@ -4,7 +4,6 @@ from collections import abc
 import copy
 from typing import Any, TypedDict, TYPE_CHECKING
 
-from exceptions import MinerException
 from utils import json_load, json_save
 from constants import IS_PACKAGED, LANG_PATH, DEFAULT_LANG
 
@@ -106,6 +105,9 @@ class GUIProgress(TypedDict):
     remaining: str
     drop_progress: str
     campaign_progress: str
+    total_queue: NotRequired[str]
+    total_remaining: NotRequired[str]
+    total_remaining_singular: NotRequired[str]
 
 
 class GUIChannelHeadings(TypedDict):
@@ -331,6 +333,9 @@ default_translation: Translation = {
             "remaining": "{time} remaining",
             "drop_progress": "Progress:",
             "campaign_progress": "Progress:",
+            "total_queue": "Total Queue:",
+            "total_remaining": "{time} ({games} games)",
+            "total_remaining_singular": "{time} ({games} game)",
         },
         "channels": {
             "name": "Channels",

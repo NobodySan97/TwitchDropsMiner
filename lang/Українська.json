@@ -85,7 +85,10 @@
             "campaign": "Кампанія:",
             "remaining": "{time} залишилося",
             "drop_progress": "Поступ:",
-            "campaign_progress": "Поступ:"
+            "campaign_progress": "Поступ:",
+            "total_queue": "Загальна черга:",
+            "total_remaining": "{time} ({games} ігор)",
+            "total_remaining_singular": "{time} ({games} гра)"
         },
         "channels": {
             "name": "Канали",

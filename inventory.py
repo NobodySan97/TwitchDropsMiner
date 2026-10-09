@@ -81,16 +81,19 @@ class BaseDrop:
             self.is_claimed = bool(data["self"].get("isClaimed"))
         elif self.benefits:
             claimed_matches = []
+            cutoff = self.campaign.ends_at + timedelta(hours=24)
             for benefit in self.benefits:
                 val = claimed_benefits.get(benefit.id)
                 if not val:
                     continue
                 dts = val if isinstance(val, list) else [val]
                 for dt in list(dts):
-                    if self.starts_at <= dt <= self.ends_at:
+                    if self.starts_at <= dt <= cutoff:
                         claimed_matches.append(benefit.id)
                         if isinstance(val, list):
                             val.remove(dt)
+                        else:
+                            claimed_benefits.pop(benefit.id, None)
                         break
             if len(claimed_matches) == len(self.benefits) and len(self.benefits) > 0:
                 self.is_claimed = True
@@ -108,7 +111,11 @@ class BaseDrop:
     @property
     def preconditions_met(self) -> bool:
         campaign = self.campaign
-        return all(campaign.timed_drops[pid].is_claimed for pid in self.precondition_drops)
+        return all(
+            campaign.timed_drops[pid].is_claimed
+            for pid in self.precondition_drops
+            if pid in campaign.timed_drops
+        )
 
     def _on_state_changed(self) -> None:
         raise NotImplementedError
@@ -209,7 +216,9 @@ class BaseDrop:
             # regardless of the error, we have to assume
             # the claiming operation has potentially failed
             return False
-        data = response["data"]
+        data = response.get("data")
+        if not data or not isinstance(data, dict):
+            return False
         if "errors" in data and data["errors"]:
             return False
         elif "claimDropRewards" in data:
@@ -268,7 +277,7 @@ class TimedDrop(BaseDrop):
 
     @property
     def remaining_minutes(self) -> int:
-        return self.required_minutes - self.current_minutes
+        return max(0, self.required_minutes - self.current_minutes)
 
     @property
     def total_required_minutes(self) -> int:
@@ -276,6 +285,7 @@ class TimedDrop(BaseDrop):
             (
                 self.campaign.timed_drops[pid].total_required_minutes
                 for pid in self.precondition_drops
+                if pid in self.campaign.timed_drops
             ),
             default=0,
         )
@@ -286,6 +296,7 @@ class TimedDrop(BaseDrop):
             (
                 self.campaign.timed_drops[pid].total_remaining_minutes
                 for pid in self.precondition_drops
+                if pid in self.campaign.timed_drops
             ),
             default=0,
         )
@@ -309,8 +320,8 @@ class TimedDrop(BaseDrop):
         return (
             super()._base_earn_conditions()
             and self.required_minutes > 0
-            # NOTE: This may be a bad idea, as it invalidates the can_earn status
-            # and provides no way to recover from this state until the next reload.
+            and self.current_minutes < self.required_minutes
+            and not self.can_claim
             and self.extra_current_minutes < MAX_EXTRA_MINUTES
         )
 
@@ -318,12 +329,7 @@ class TimedDrop(BaseDrop):
         self._twitch.gui.inv.update_drop(self)
 
     def _update_real_minutes(self, delta: int) -> None:
-        if delta == 0 or self.real_current_minutes + delta < 0:
-            return
-        if self.real_current_minutes + delta < self.required_minutes:
-            self.real_current_minutes += delta
-        else:
-            self.real_current_minutes = self.required_minutes
+        self.real_current_minutes = max(0, min(self.required_minutes, self.real_current_minutes + delta))
         self.extra_current_minutes = 0
         self._on_state_changed()
 
@@ -348,13 +354,15 @@ class TimedDrop(BaseDrop):
 
     def update_minutes(self, new_minutes: int):
         delta: int = new_minutes - self.real_current_minutes
-        if delta == 0:
-            return
-        elif self.real_current_minutes + delta < 0:
+        if self.real_current_minutes + delta < 0:
             delta = -self.real_current_minutes
         elif self.real_current_minutes + delta > self.required_minutes:
             delta = self.required_minutes - self.real_current_minutes
-        self.campaign._update_real_minutes(delta)
+        self._update_real_minutes(delta)
+        if (first_drop := self.campaign.first_drop) is not None:
+            first_drop.display()
+        else:
+            self.display(countdown=False)
 
 
 class DropsCampaign:
@@ -445,33 +453,29 @@ class DropsCampaign:
 
     @property
     def required_minutes(self) -> int:
-        return max(d.total_required_minutes for d in self.drops)
+        return max((d.total_required_minutes for d in self.drops), default=0)
 
     @property
     def remaining_minutes(self) -> int:
-        return max(d.total_remaining_minutes for d in self.drops)
+        return max((d.total_remaining_minutes for d in self.drops), default=0)
 
     @property
     def progress(self) -> float:
+        if not self.total_drops:
+            return 0.0
         return sum(d.progress for d in self.drops) / self.total_drops
 
     @property
     def availability(self) -> float:
-        return min(d.availability for d in self.drops)
+        return min((d.availability for d in self.drops), default=math.inf)
 
     @property
     def first_drop(self) -> TimedDrop | None:
-        drops: list[TimedDrop] = sorted(
+        return min(
             (drop for drop in self.drops if drop.can_earn()),
             key=lambda d: d.remaining_minutes,
+            default=None,
         )
-        return drops[0] if drops else None
-
-    def _update_real_minutes(self, delta: int) -> None:
-        for drop in self.drops:
-            drop._update_real_minutes(delta)
-        if (first_drop := self.first_drop) is not None:
-            first_drop.display()
 
     def _base_can_earn(
         self, channel: Channel | None = None, ignore_channel_status: bool = False
@@ -533,6 +537,8 @@ class DropsCampaign:
                 f"At least one of the drops in campaign \"{self.name}({self.game.name})\" "
                 "has reached the maximum extra minutes limit!"
             )
+            for drop in self.drops:
+                drop.extra_current_minutes = 0
             self._twitch.change_state(State.CHANNEL_SWITCH)
         if (first_drop := self.first_drop) is not None:
             first_drop.display()

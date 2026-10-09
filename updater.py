@@ -120,9 +120,15 @@ async def check_for_updates(gui):
             dialog = tk.Toplevel(gui._root)
             try:
                 dialog.title("Update Available")
-                dialog.geometry("380x150")
+                rx = gui._root.winfo_x()
+                ry = gui._root.winfo_y()
+                if rx < 0 or ry < 0:
+                    sw = dialog.winfo_screenwidth()
+                    sh = dialog.winfo_screenheight()
+                    dialog.geometry("380x150+%d+%d" % (max(0, (sw - 380) // 2), max(0, (sh - 150) // 2)))
+                else:
+                    dialog.geometry("380x150+%d+%d" % (rx + 50, ry + 50))
                 dialog.resizable(False, False)
-                dialog.geometry("+%d+%d" % (gui._root.winfo_x() + 50, gui._root.winfo_y() + 50))
                 dialog.transient(gui._root)
                 dialog.grab_set()
                 dialog.protocol("WM_DELETE_WINDOW", on_no)
@@ -204,7 +210,14 @@ async def perform_update(gui, assets):
     prog_win.title("Downloading Update")
     prog_win.geometry("320x130")
     prog_win.resizable(False, False)
-    prog_win.geometry("+%d+%d" % (gui._root.winfo_x() + 50, gui._root.winfo_y() + 50))
+    rx = gui._root.winfo_x()
+    ry = gui._root.winfo_y()
+    if rx < 0 or ry < 0:
+        sw = prog_win.winfo_screenwidth()
+        sh = prog_win.winfo_screenheight()
+        prog_win.geometry("320x130+%d+%d" % (max(0, (sw - 320) // 2), max(0, (sh - 130) // 2)))
+    else:
+        prog_win.geometry("320x130+%d+%d" % (rx + 50, ry + 50))
     prog_win.transient(gui._root)
     prog_win.grab_set()
 
@@ -277,6 +290,11 @@ async def perform_update(gui, assets):
                 shutil.copy2(new_exe, current_exe)
             except Exception as copy_err:
                 # Rollback if copy fails
+                if os.path.exists(current_exe):
+                    try:
+                        os.remove(current_exe)
+                    except Exception:
+                        pass
                 if os.path.exists(old_exe) and not os.path.exists(current_exe):
                     os.rename(old_exe, current_exe)
                 raise copy_err

@@ -85,7 +85,10 @@
             "remaining": "剩余：{time}",
             "campaign": "掉宝活动名称：",
             "drop_progress": "掉宝进度：",
-            "campaign_progress": "活动进度："
+            "campaign_progress": "活动进度：",
+            "total_queue": "总队列：",
+            "total_remaining": "{time} ({games} 个游戏)",
+            "total_remaining_singular": "{time} ({games} 个游戏)"
         },
         "channels": {
             "name": "活动频道",

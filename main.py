@@ -9,6 +9,7 @@ if __name__ == "__main__":
     import io
     import os
     import sys
+    import time
     import signal
     import asyncio
     import logging
@@ -62,7 +63,8 @@ if __name__ == "__main__":
             try:
                 super().exit(status, message)  # sys.exit(2)
             finally:
-                messagebox.showerror("Argument Parser Error", self._message.getvalue())
+                if status != 0:
+                    messagebox.showerror("Argument Parser Error", self._message.getvalue())
 
     class ParsedArgs(argparse.Namespace):
         _verbose: int
@@ -195,8 +197,8 @@ if __name__ == "__main__":
         import updater
         loop = asyncio.get_running_loop()
         if sys.platform == "linux":
-            loop.add_signal_handler(signal.SIGINT, lambda *_: client.gui.close())
-            loop.add_signal_handler(signal.SIGTERM, lambda *_: client.gui.close())
+            loop.add_signal_handler(signal.SIGINT, lambda *args: client.gui.close())
+            loop.add_signal_handler(signal.SIGTERM, lambda *args: client.gui.close())
         update_task = loop.create_task(updater.run_update_loop(client.gui))
         try:
             await client.run()
@@ -242,13 +244,21 @@ if __name__ == "__main__":
         client.gui.close_window()
         sys.exit(exit_status)
 
+    file = None
     try:
         # use lock_file to check if we're not already running
-        success, file = lock_file(LOCK_PATH)
+        # include a short retry loop in case a restarting parent process is still releasing the lock
+        success = False
+        for _attempt in range(15):
+            success, file = lock_file(LOCK_PATH)
+            if success:
+                break
+            time.sleep(0.2)
         if not success:
             # already running - exit
             sys.exit(3)
 
         asyncio.run(main())
     finally:
-        file.close()
+        if file is not None:
+            file.close()

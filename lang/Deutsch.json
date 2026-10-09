@@ -85,7 +85,10 @@
             "campaign": "Kampagne:",
             "remaining": "{time} verbleibend",
             "drop_progress": "Fortschritt:",
-            "campaign_progress": "Fortschritt:"
+            "campaign_progress": "Fortschritt:",
+            "total_queue": "Gesamte Warteschlange:",
+            "total_remaining": "{time} ({games} Spiele)",
+            "total_remaining_singular": "{time} ({games} Spiel)"
         },
         "channels": {
             "name": "Kanäle",

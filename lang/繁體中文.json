@@ -85,7 +85,10 @@
             "remaining": "剩餘時間：{time}",
             "campaign": "掉寶活動名稱：",
             "drop_progress": "掉寶進度：",
-            "campaign_progress": "活動進度："
+            "campaign_progress": "活動進度：",
+            "total_queue": "總隊列：",
+            "total_remaining": "{time} ({games} 個遊戲)",
+            "total_remaining_singular": "{time} ({games} 個遊戲)"
         },
         "channels": {
             "name": "活動頻道",

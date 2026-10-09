@@ -77,9 +77,17 @@ def _merge_vars(base_vars: JsonType, vars: JsonType) -> None:
             # simple overwrite
             base_vars[k] = v
     # ensure none of the vars are ellipsis (unset value)
-    for k, v in base_vars.items():
-        if v is Ellipsis:
-            raise RuntimeError(f"Unspecified variable: '{k}'")
+    def _assert_no_ellipsis(d: Any, path: str = "") -> None:
+        if isinstance(d, dict):
+            for key, val in d.items():
+                _assert_no_ellipsis(val, f"{path}.{key}" if path else str(key))
+        elif isinstance(d, list):
+            for idx, item in enumerate(d):
+                _assert_no_ellipsis(item, f"{path}[{idx}]")
+        elif d is Ellipsis:
+            raise RuntimeError(f"Unspecified variable: '{path}'")
+
+    _assert_no_ellipsis(base_vars)
 
 
 # Base Paths
@@ -128,7 +136,7 @@ DEFAULT_LANG = "English"
 PING_INTERVAL = timedelta(minutes=3)
 PING_TIMEOUT = timedelta(seconds=10)
 ONLINE_DELAY = timedelta(seconds=120)
-WATCH_INTERVAL = timedelta(seconds=59)
+WATCH_INTERVAL = timedelta(seconds=20)
 # Strings
 WINDOW_TITLE = f"Twitch Drops Miner v{__version__} (by DevilXD)"
 # Logging
@@ -540,8 +548,6 @@ class WebsocketTopic:
     def __eq__(self, other) -> bool:
         if isinstance(other, WebsocketTopic):
             return self._id == other._id
-        elif isinstance(other, str):
-            return self._id == other
         return NotImplemented
 
     def __hash__(self) -> int:

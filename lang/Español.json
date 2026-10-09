@@ -85,7 +85,10 @@
             "campaign": "Campaña:",
             "remaining": "{time} restante",
             "drop_progress": "Progreso:",
-            "campaign_progress": "Progreso:"
+            "campaign_progress": "Progreso:",
+            "total_queue": "Cola total:",
+            "total_remaining": "{time} ({games} juegos)",
+            "total_remaining_singular": "{time} ({games} juego)"
         },
         "channels": {
             "name": "Canales",

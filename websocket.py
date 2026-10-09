@@ -56,6 +56,7 @@ class Websocket:
         self._max_pong: float = self._next_ping + PING_TIMEOUT.total_seconds()
         # main task, responsible for receiving messages, sending them, and websocket ping
         self._handle_task: asyncio.Task[None] | None = None
+        self._tasks: set[asyncio.Task[Any]] = set()
         # topics stuff
         self.topics: dict[str, WebsocketTopic] = {}
         self._submitted: set[WebsocketTopic] = set()
@@ -77,12 +78,14 @@ class Websocket:
     def request_reconnect(self):
         # reset our ping interval, so we send a PING after reconnect right away
         self._next_ping = time()
+        self._max_pong = self._next_ping + PING_TIMEOUT.total_seconds()
         self._reconnect_requested.set()
 
     async def start(self):
         async with self._state_lock:
             self.start_nowait()
-        await self.wait_until_connected()
+        with suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(self.wait_until_connected(), timeout=15)
 
     def start_nowait(self):
         if self._handle_task is None or self._handle_task.done():
@@ -97,6 +100,13 @@ class Websocket:
             if ws is not None:
                 self.set_status(_("gui", "websocket", "disconnecting"))
                 await ws.close()
+            for task in list(self._tasks):
+                if not task.done():
+                    task.cancel()
+            if self._tasks:
+                with suppress(asyncio.CancelledError):
+                    await asyncio.gather(*self._tasks, return_exceptions=True)
+            self._tasks.clear()
             if self._handle_task is not None:
                 with suppress(asyncio.TimeoutError, asyncio.CancelledError):
                     await asyncio.wait_for(asyncio.shield(self._handle_task), timeout=2)
@@ -113,7 +123,9 @@ class Websocket:
     def stop_nowait(self, *, remove: bool = False):
         # weird syntax but that's what we get for using a decorator for this
         # return type of 'task_wrapper' is a coro, so we need to instance it for the task
-        asyncio.create_task(task_wrapper(self.stop)(remove=remove))
+        task = asyncio.create_task(task_wrapper(self.stop)(remove=remove))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def _backoff_connect(
         self, ws_url: str, **kwargs
@@ -161,6 +173,8 @@ class Websocket:
         ):
             self._ws.set(websocket)
             self._reconnect_requested.clear()
+            self._next_ping = time()
+            self._max_pong = self._next_ping + PING_TIMEOUT.total_seconds()
             # NOTE: _topics_changed doesn't start set,
             # because there's no initial topics we can sub to right away
             self.set_status(_("gui", "websocket", "connected"))
@@ -257,10 +271,17 @@ class Websocket:
         """
         ws = self._ws.get_with_default(None)
         assert ws is not None
-        while True:
+        while len(messages) < 25:
             try:
                 raw_message: aiohttp.WSMessage = await ws.receive(timeout=timeout)
-            except aiohttp.ClientConnectionError:
+            except asyncio.TimeoutError:
+                raise
+            except (
+                aiohttp.ClientConnectionError,
+                aiohttp.ClientPayloadError,
+                ConnectionResetError,
+                OSError,
+            ):
                 raise WebsocketClosed(received=False)
             ws_logger.debug(f"Websocket[{self._idx}] received: {raw_message}")
             if raw_message.type is WSMsgType.TEXT:
@@ -291,7 +312,9 @@ class Websocket:
             topic = self.topics.get(message["data"]["topic"])
             if topic is not None:
                 payload = json.loads(message["data"]["message"])
-                asyncio.create_task(topic(payload))
+                task = asyncio.create_task(topic(payload))
+                self._tasks.add(task)
+                task.add_done_callback(self._tasks.discard)
         except (KeyError, json.JSONDecodeError) as exc:
             ws_logger.warning(f"Websocket[{self._idx}] failed to parse topic message: {exc}")
 
@@ -421,7 +444,7 @@ class WebsocketPool:
         # count up all the topics - if we happen to have more websockets connected than needed,
         # stop the last one and recycle topics from it - repeat until we have enough
         recycled_topics: list[WebsocketTopic] = []
-        while True:
+        while len(self.websockets) > 1:
             count = sum(len(ws.topics) for ws in self.websockets)
             if count <= (len(self.websockets) - 1) * WS_TOPICS_LIMIT:
                 ws = self.websockets.pop()

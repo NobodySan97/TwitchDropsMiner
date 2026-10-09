@@ -85,7 +85,10 @@
             "campaign": "Campagne :",
             "remaining": "{time} restant",
             "drop_progress": "Avancement :",
-            "campaign_progress": "Avancement :"
+            "campaign_progress": "Avancement :",
+            "total_queue": "File d'attente totale :",
+            "total_remaining": "{time} ({games} jeux)",
+            "total_remaining_singular": "{time} ({games} jeu)"
         },
         "channels": {
             "name": "Chaînes",

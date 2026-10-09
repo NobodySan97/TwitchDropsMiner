@@ -85,7 +85,10 @@
             "campaign": "Kampanya:",
             "remaining": "{time} kaldı",
             "drop_progress": "İlerleme:",
-            "campaign_progress": "İlerleme:"
+            "campaign_progress": "İlerleme:",
+            "total_queue": "Toplam Kuyruk:",
+            "total_remaining": "{time} ({games} oyun)",
+            "total_remaining_singular": "{time} ({games} oyun)"
         },
         "channels": {
             "name": "Kanallar",

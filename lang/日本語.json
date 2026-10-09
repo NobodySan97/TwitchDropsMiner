@@ -85,7 +85,10 @@
             "campaign": "キャンペーン：",
             "remaining": "残り時間：{time}",
             "drop_progress": "進行状況：",
-            "campaign_progress": "進行状況："
+            "campaign_progress": "進行状況：",
+            "total_queue": "合計キュー:",
+            "total_remaining": "{time} ({games}ゲーム)",
+            "total_remaining_singular": "{time} ({games}ゲーム)"
         },
         "channels": {
             "name": "チャンネル",

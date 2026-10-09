@@ -85,7 +85,10 @@
             "campaign": "Kampanye :",
             "remaining": "{time} tersisa",
             "drop_progress": "Perkembangan :",
-            "campaign_progress": "Perkembangan :"
+            "campaign_progress": "Perkembangan :",
+            "total_queue": "Total Antrean:",
+            "total_remaining": "{time} ({games} game)",
+            "total_remaining_singular": "{time} ({games} game)"
         },
         "channels": {
             "name": "Saluran",

@@ -85,7 +85,10 @@
             "campaign": "Kampanje:",
             "remaining": "{time} gjenstår",
             "drop_progress": "Fremdrift:",
-            "campaign_progress": "Fremdrift:"
+            "campaign_progress": "Fremdrift:",
+            "total_queue": "Total kø:",
+            "total_remaining": "{time} ({games} spill)",
+            "total_remaining_singular": "{time} ({games} spill)"
         },
         "channels": {
             "name": "Kanaler",

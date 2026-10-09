@@ -85,7 +85,10 @@
             "campaign": "Кампания:",
             "remaining": "{time} осталось",
             "drop_progress": "Прогресс:",
-            "campaign_progress": "Прогресс:"
+            "campaign_progress": "Прогресс:",
+            "total_queue": "Общая очередь:",
+            "total_remaining": "{time} ({games} игр)",
+            "total_remaining_singular": "{time} ({games} игра)"
         },
         "channels": {
             "name": "Каналы",

@@ -85,7 +85,10 @@
             "campaign": ":الحملة",
             "remaining": "{time} متبقي",
             "drop_progress": "التقدم ➜",
-            "campaign_progress": "التقدم ➜"
+            "campaign_progress": "التقدم ➜",
+            "total_queue": "إجمالي قائمة الانتظار:",
+            "total_remaining": "{time} ({games} ألعاب)",
+            "total_remaining_singular": "{time} ({games} لعبة)"
         },
         "channels": {
             "name": "القنوات",

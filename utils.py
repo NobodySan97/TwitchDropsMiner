@@ -17,6 +17,7 @@ from pathlib import Path
 from functools import wraps
 from contextlib import suppress
 from functools import cached_property
+from copy import deepcopy
 from datetime import datetime, timezone
 from collections import abc, OrderedDict
 from typing import Any, Literal, Callable, Generic, Mapping, TypeVar, ParamSpec, cast
@@ -75,8 +76,11 @@ def format_traceback(exc: BaseException, **kwargs: Any) -> str:
     return ''.join(traceback.format_exception(type(exc), exc, **kwargs))
 
 
-def lock_file(path: Path) -> tuple[bool, io.TextIOWrapper]:
-    file = path.open('a+', encoding="utf8")
+def lock_file(path: Path) -> tuple[bool, io.TextIOWrapper | None]:
+    try:
+        file = path.open('a+', encoding="utf8")
+    except OSError:
+        return False, None
     if sys.platform == "win32":
         import msvcrt
         try:
@@ -87,14 +91,16 @@ def lock_file(path: Path) -> tuple[bool, io.TextIOWrapper]:
             file.seek(0)
             msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
         except Exception:
-            return False, file
+            file.close()
+            return False, None
         return True, file
     if sys.platform in ("linux", "darwin"):
         import fcntl
         try:
             fcntl.lockf(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except Exception:
-            return False, file
+            file.close()
+            return False, None
         return True, file
     # for unsupported systems, just always return True
     return True, file
@@ -153,7 +159,7 @@ def task_wrapper(
                     # there isn't an easy and sure way to obtain the Twitch instance here,
                     # but we can improvise finding it
                     from twitch import Twitch  # cyclic import
-                    probe = args and args[0] or None  # extract from 'self' arg
+                    probe = args[0] if args else None  # extract from 'self' arg
                     if isinstance(probe, Twitch):
                         probe.close()
                     elif probe is not None:
@@ -210,16 +216,18 @@ SERIALIZE_ENV: dict[str, Callable[[Any], object]] = {
 }
 
 
-def _remove_missing(obj: JsonType) -> JsonType:
+def _remove_missing(obj: Any) -> Any:
     # this modifies obj in place, but we return it just in case
-    for key, value in obj.copy().items():
-        if value is _MISSING:
-            del obj[key]
-        elif isinstance(value, dict):
-            _remove_missing(value)
-            if not value:
-                # the dict is empty now, so remove it's key entirely
+    if isinstance(obj, dict):
+        for key, value in list(obj.items()):
+            if value is _MISSING:
                 del obj[key]
+            elif isinstance(value, (dict, list)):
+                _remove_missing(value)
+                if isinstance(value, dict) and not value:
+                    del obj[key]
+    elif isinstance(obj, list):
+        obj[:] = [_remove_missing(item) for item in obj if item is not _MISSING]
     return obj
 
 
@@ -227,7 +235,10 @@ def _deserialize(obj: JsonType) -> Any:
     if "__type" in obj:
         obj_type = obj["__type"]
         if obj_type in SERIALIZE_ENV:
-            return SERIALIZE_ENV[obj_type](obj["data"])
+            try:
+                return SERIALIZE_ENV[obj_type](obj["data"])
+            except (ValueError, TypeError, KeyError):
+                return _MISSING
         else:
             return _MISSING
     return obj
@@ -239,6 +250,8 @@ def merge_json(obj: JsonType, template: Mapping[Any, Any]) -> None:
         if k not in template:
             # unknown key: overwrite from template
             del obj[k]
+        elif isinstance(template[k], set) and isinstance(v, (list, set)):
+            obj[k] = set(v)
         elif type(v) is not type(template[k]):
             # types don't match: overwrite from template
             obj[k] = template[k]
@@ -271,16 +284,16 @@ def json_load(path: Path, defaults: _JSON_T, *, merge: bool = True) -> _JSON_T:
             pass
     # handle defaults and merging
     if combined is None:
-        combined = dict(defaults)  # always make a copy of defaults
+        combined = deepcopy(defaults)  # always make a deep copy of defaults
     elif merge:
-        merge_json(combined, dict(defaults))
+        merge_json(combined, deepcopy(defaults))
     return cast(_JSON_T, combined)
 
 
 def json_save(path: Path, contents: Mapping[Any, Any], *, sort: bool = False) -> None:
     new_path: Path = path.with_name(f"{path.name}.new")
     with new_path.open('w', encoding="utf8") as file:
-        json.dump(contents, file, default=_serialize, sort_keys=sort, indent=4)
+        json.dump(contents, file, default=_serialize, sort_keys=sort, indent=4, ensure_ascii=False)
     for _ in range(5):
         try:
             new_path.replace(path)
@@ -450,7 +463,7 @@ class Game:
     SPECIAL_GAME_IDS: set[int] = {509663, 509672}
 
     def __init__(self, data: JsonType):
-        self.id: int = int(data["id"])
+        self.id: int = int(data.get("id") or 0)
         self.name: str = data.get("displayName") or data.get("name") or ""
         if data.get("slug"):
             self.slug = data["slug"]

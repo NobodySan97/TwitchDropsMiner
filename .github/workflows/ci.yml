@@ -41,6 +41,14 @@ jobs:
             exit 1
           fi
 
+      - name: Install linter
+        run: |
+          python3 -m pip install ruff
+
+      - name: Lint codebase
+        run: |
+          ruff check . --select F,E9,W6
+
   windows:
     name: Windows
     runs-on: windows-latest
@@ -88,7 +96,7 @@ jobs:
 
       - name: Create portable executable
         run: |
-          pyinstaller build.spec
+          pyinstaller build.spec --noconfirm
 
       - name: Create release folder
         run: |
@@ -305,7 +313,11 @@ jobs:
 
   update_releases_page:
     name: Upload builds to Releases
-    if: github.event_name != 'pull_request'
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      !contains(needs.*.result, 'cancelled') &&
+      contains(needs.*.result, 'success')
     needs:
       - windows
       - linux-pyinstaller
@@ -325,6 +337,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
       - name: Delete the existing pre-release (if present)
         run: |
@@ -341,8 +354,8 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
-          artifactErrorsFailBuild: true
-          artifacts: artifacts/*/*
+          artifactErrorsFailBuild: false
+          artifacts: artifacts/*.zip
           body: |
             **This is an automatically generated in-development pre-release version of the application, that includes the latest master branch changes.**
             **⚠️ This build is not stable and may end up terminating with a fatal error. ⚠️**

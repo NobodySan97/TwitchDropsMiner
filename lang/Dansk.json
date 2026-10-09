@@ -85,7 +85,10 @@
             "campaign": "Kampagne:",
             "remaining": "{time} tilbage",
             "drop_progress": "Fremskridt:",
-            "campaign_progress": "Fremskridt:"
+            "campaign_progress": "Fremskridt:",
+            "total_queue": "Samlet kø:",
+            "total_remaining": "{time} ({games} spil)",
+            "total_remaining_singular": "{time} ({games} spil)"
         },
         "channels": {
             "name": "Kanaler",

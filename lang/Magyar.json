@@ -85,7 +85,10 @@
             "campaign": "Kampány:",
             "remaining": "{time} van hátra",
             "drop_progress": "Előrehaladás:",
-            "campaign_progress": "Előrehaladás:"
+            "campaign_progress": "Előrehaladás:",
+            "total_queue": "Teljes várólista:",
+            "total_remaining": "{time} ({games} játék)",
+            "total_remaining_singular": "{time} ({games} játék)"
         },
         "channels": {
             "name": "Csatornák",

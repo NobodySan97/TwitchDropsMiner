@@ -26,27 +26,31 @@ jobs:
       - name: Sync with Upstream
         id: sync
         run: |
-          git remote add upstream https://github.com/DevilXD/TwitchDropsMiner.git
+          git remote add upstream https://github.com/DevilXD/TwitchDropsMiner.git || git remote set-url upstream https://github.com/DevilXD/TwitchDropsMiner.git
           git fetch upstream master
           
           HEAD_BEFORE=$(git rev-parse HEAD)
-          # Unisci le modifiche di DevilXD nel tuo branch
-          git merge upstream/master --no-edit
+          # Unisci le modifiche di DevilXD nel tuo branch con abort in caso di conflitti
+          if ! git merge upstream/master -m "Sync upstream changes from DevilXD/TwitchDropsMiner" --no-edit; then
+            echo "::error::Conflitto durante il merge con upstream! Merge interrotto per proteggere il repository."
+            git merge --abort
+            exit 1
+          fi
           HEAD_AFTER=$(git rev-parse HEAD)
           
           if [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
             git push origin master
-            echo "updated=true" >> $GITHUB_OUTPUT
+            echo "updated=true" >> "$GITHUB_OUTPUT"
             echo "Nuove modifiche trovate e unite con successo!"
           else
-            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "updated=false" >> "$GITHUB_OUTPUT"
             echo "Nessuna nuova modifica."
           fi
 
       - name: Trigger Build Workflow
         if: steps.sync.outputs.updated == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
         run: |
           # Avvia manualmente la build visto che GITHUB_TOKEN non avvia altri workflow con il push
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref master
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref master || echo "::warning::Impossibile avviare automaticamente ci.yml tramite gh CLI."

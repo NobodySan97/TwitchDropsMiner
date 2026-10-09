@@ -85,7 +85,10 @@
             "campaign": "Campanie :",
             "remaining": "{time} rămas",
             "drop_progress": "Avansare :",
-            "campaign_progress": "Avansare :"
+            "campaign_progress": "Avansare :",
+            "total_queue": "Coadă totală:",
+            "total_remaining": "{time} ({games} jocuri)",
+            "total_remaining_singular": "{time} ({games} joc)"
         },
         "channels": {
             "name": "Canale",
