@@ -14,7 +14,10 @@
 
 > [!NOTE]
 > **This repository is an enhanced fork of [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner)**.  
-> All core architecture and credit belongs to **[DevilXD](https://github.com/DevilXD)**.  
+> All core architecture, design, and original credit belongs to **[DevilXD](https://github.com/DevilXD)**.  
+>
+> ### 🏆 Special Attribution:
+> - 💡 **HLS Playlist HEAD Mining Solution**: Full credit and gratitude to **[DevilXD](https://github.com/DevilXD)** for researching and introducing the breakthrough HLS playlist HEAD request method (commits `f693b0c` & `378697a`), successfully solving the 2026 Twitch Spade API deprecation without requiring a heavyweight web browser.
 >
 > ### 🚀 Key Enhancements in this Fork:
 > - 🔄 **Built-in Auto-Updater**: Automatic update checks on startup and periodically every 1 hour in the background. If minimized to the system tray, it restores the window, notifies you with sound, and downloads with an interactive progress bar before restarting seamlessly.
@@ -23,7 +26,7 @@
 >   - **Dynamic Watch Telemetry**: Dynamic `client_time` and payloads to prevent bot detection and stalled progress.
 >   - **Reliable Drop Claiming**: Accurate claim eligibility checks preventing false claims on unearned drops.
 >   - **Session Re-authentication**: Automatic 401 token invalidation and refresh for uninterrupted 24/7 farming.
->   - **GUI Memory Protections**: Fixed listener leaks, theme resets, and bounded console buffers.
+>   - **GUI Memory & Concurrency Protections**: Fixed timer race conditions, listener leaks, theme resets, and bounded console buffers.
 >   - **Automatic Disk Logging**: Automatic real-time saving to `log.txt` with 10MB auto-rotation.
 
 This application allows you to AFK mine timed Twitch drops, without having to worry about switching channels when the one you were watching goes offline, claiming the drops, or even receiving the stream data itself. This helps you save on bandwidth and hassle.
@@ -173,6 +176,7 @@ placed past the period character at the end.
 • Please ensure to leave a single empty new line at the end of the file.
 -->
 
+@DevilXD - Core architect, creator of TwitchDropsMiner, and designer of the HLS playlist HEAD mining method.  
 @guihkx - For the CI script, CI maintenance, and everything related to Linux builds.  
 @kWAYTV - For the implementation of the dark mode theme.  
 @crocchetto - For the macOS port.  
@@ -181,17 +185,8 @@ placed past the period character at the end.
 @Suz1e - For the entirety of the Chinese (简体中文) translation and revisions.  
 @wwj010, @zhangminghao1989, @Self4215 - For the Chinese (简体中文) translation corrections and revisions.  
 @Ricky103403 - For the entirety of the Traditional Chinese (繁體中文) translation.  
-@LusTerCsI - For the Traditional Chinese (繁體中文)## Contributing
-
-Any contributions you make are **greatly appreciated**.
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-<!-- Dummy update for testing auto-update --> - For the entirety of the Dutch (Nederlandse) translation.  
+@LusTerCsI - For the Traditional Chinese (繁體中文) translation corrections and revisions.  
+@Translators - For the entirety of the Dutch (Nederlandse) translation.  
 @Rensoraa - For the Traditional Dutch (Nederlandse) translation corrections and revisions.  
 @roobini-gamer - For the entirety of the French (Français) translation.  
 @Calvineries - For the French (Français) translation revisions.  
