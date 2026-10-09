@@ -20,7 +20,7 @@ from tkinter.font import Font, nametofont
 from functools import partial, cached_property
 from datetime import datetime, timedelta, timezone
 from tkinter import Tk, ttk, StringVar, DoubleVar, IntVar
-from typing import Any, Union, Tuple, TypedDict, NotRequired, NoReturn, TYPE_CHECKING
+from typing import Any, Union, Tuple, TypedDict, NoReturn, TYPE_CHECKING
 
 import pystray
 from yarl import URL
@@ -1429,7 +1429,7 @@ class Notebook:
 class CampaignDisplay(TypedDict):
     frame: ttk.Frame
     status: ttk.Label
-    linked: NotRequired[LinkLabel]
+    linked: LinkLabel
 
 
 class InventoryOverview:
@@ -1624,13 +1624,6 @@ class InventoryOverview:
             campaign_frame, text=status_text, takefocus=False, foreground=status_color
         )
         status_label.grid(column=1, row=1, sticky="w", padx=4)
-        # NOTE: We have to save the campaign's frame and status before any awaits happen,
-        # otherwise the len(self._campaigns) call may overwrite an existing frame,
-        # if the campaigns are added concurrently.
-        self._campaigns[campaign] = {
-            "frame": campaign_frame,
-            "status": status_label,
-        }
         # Starts / Ends
         MouseOverLabel(
             campaign_frame,
@@ -1664,7 +1657,14 @@ class InventoryOverview:
             **link_kwargs,
         )
         linked_label.grid(column=1, row=3, sticky="w", padx=4)
-        self._campaigns[campaign]["linked"] = linked_label
+        # NOTE: We have to save the campaign's frame, status and linked label before any awaits happen,
+        # otherwise the len(self._campaigns) call may overwrite an existing frame,
+        # if the campaigns are added concurrently.
+        self._campaigns[campaign] = {
+            "frame": campaign_frame,
+            "status": status_label,
+            "linked": linked_label,
+        }
         # ACL channels
         acl = campaign.allowed_channels
         if acl:
