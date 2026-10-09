@@ -20,7 +20,7 @@ from tkinter.font import Font, nametofont
 from functools import partial, cached_property
 from datetime import datetime, timedelta, timezone
 from tkinter import Tk, ttk, StringVar, DoubleVar, IntVar
-from typing import Any, Union, Tuple, TypedDict, NoReturn, TYPE_CHECKING
+from typing import Any, Union, Tuple, TypedDict, NotRequired, NoReturn, TYPE_CHECKING
 
 import pystray
 from yarl import URL
@@ -258,6 +258,20 @@ class AutocompleteCombobox(PlaceholderCombobox):
         self._create_popup()
         assert self._listbox is not None
         assert self._popup is not None
+
+        # Synchronize listbox colors with active ttk theme
+        style = ttk.Style()
+        l_bg = style.lookup("Treeview", "background") or "#ffffff"
+        l_fg = style.lookup("Treeview", "foreground") or "#000000"
+        l_sel_bg = style.lookup("Treeview", "selectbackground") or "#094771"
+        l_sel_fg = style.lookup("Treeview", "selectforeground") or "#ffffff"
+        self._listbox.configure(
+            bg=l_bg,
+            fg=l_fg,
+            selectbackground=l_sel_bg,
+            selectforeground=l_sel_fg,
+        )
+
         self._listbox.delete(0, "end")
         for m in matches:
             self._listbox.insert("end", f"  {m}")
@@ -1050,7 +1064,7 @@ class ChannelList:
         scroll.grid(column=1, row=1, sticky="ns")
         self._font = Font(frame, manager._style.lookup("Treeview", "font"))
         self._const_width: set[str] = set()
-        table.tag_configure("watching", background="gray70")
+        self.configure_theme(dark=manager._twitch.settings.dark_mode)
         table.bind("<Button-1>", self._disable_column_resize)
         table.bind("<<TreeviewSelect>>", self._selected)
         self._add_column("#0", '', width=0)
@@ -1181,6 +1195,12 @@ class ChannelList:
         iid = channel.iid
         self._table.item(iid, tags="watching")
         self._table.see(iid)
+
+    def configure_theme(self, *, dark: bool) -> None:
+        if dark:
+            self._table.tag_configure("watching", background="#1e3a5f", foreground="#ffffff")
+        else:
+            self._table.tag_configure("watching", background="#d0e4fe", foreground="#000000")
 
     def get_selection(self) -> Channel | None:
         if not self._channel_map:
@@ -1409,6 +1429,7 @@ class Notebook:
 class CampaignDisplay(TypedDict):
     frame: ttk.Frame
     status: ttk.Label
+    linked: NotRequired[LinkLabel]
 
 
 class InventoryOverview:
@@ -1498,6 +1519,7 @@ class InventoryOverview:
     def configure_theme(self, *, bg: str):
         # Canvas background needs manual control
         self._canvas.configure(bg=bg)
+        self.refresh()
 
     def _update_visibility(self, campaign: DropsCampaign):
         # True if the campaign is supposed to show, False makes it hidden.
@@ -1532,23 +1554,38 @@ class InventoryOverview:
             self.refresh()
 
     def get_status(self, campaign: DropsCampaign) -> tuple[str, str]:
+        dark = getattr(self._settings, "dark_mode", False)
         if campaign.active:
             status_text: str = _("gui", "inventory", "status", "active")
-            status_color: str = "green"
+            status_color: str = "#4cd964" if dark else "green"
         elif campaign.upcoming:
             status_text = _("gui", "inventory", "status", "upcoming")
-            status_color = "goldenrod"
+            status_color = "#e3b341" if dark else "goldenrod"
         else:
             status_text = _("gui", "inventory", "status", "expired")
-            status_color = "red"
+            status_color = "#ff6b6b" if dark else "red"
         return (status_text, status_color)
 
     def refresh(self):
-        for campaign in self._campaigns:
+        dark = getattr(self._settings, "dark_mode", False)
+        for campaign, display in self._campaigns.items():
             # status
-            status_label = self._campaigns[campaign]["status"]
+            status_label = display["status"]
             status_text, status_color = self.get_status(campaign)
             status_label.config(text=status_text, foreground=status_color)
+            # linking
+            linked_label = display.get("linked")
+            if linked_label is not None:
+                if campaign.eligible:
+                    linked_color = "#4cd964" if dark else "green"
+                else:
+                    linked_color = "#ff6b6b" if dark else "red"
+                linked_label.config(foreground=linked_color)
+            # drops
+            for drop in campaign.drops:
+                drop_label = self._drops.get(drop.id)
+                if drop_label is not None:
+                    self.update_progress(drop, drop_label)
             # visibility
             self._update_visibility(campaign)
         self._canvas_update()
@@ -1607,24 +1644,27 @@ class InventoryOverview:
             takefocus=False,
         ).grid(column=1, row=2, sticky="w", padx=4)
         # Linking status
+        dark = getattr(self._settings, "dark_mode", False)
         if campaign.eligible:
             link_kwargs = {
                 "style": '',
                 "text": _("gui", "inventory", "status", "linked"),
-                "foreground": "green",
+                "foreground": "#4cd964" if dark else "green",
             }
         else:
             link_kwargs = {
                 "text": _("gui", "inventory", "status", "not_linked"),
-                "foreground": "red",
+                "foreground": "#ff6b6b" if dark else "red",
             }
-        LinkLabel(
+        linked_label = LinkLabel(
             campaign_frame,
             link=campaign.link_url,
             takefocus=False,
             padding=0,
             **link_kwargs,
-        ).grid(column=1, row=3, sticky="w", padx=4)
+        )
+        linked_label.grid(column=1, row=3, sticky="w", padx=4)
+        self._campaigns[campaign]["linked"] = linked_label
         # ACL channels
         acl = campaign.allowed_channels
         if acl:
@@ -1690,13 +1730,14 @@ class InventoryOverview:
         self._campaigns.clear()
 
     def update_progress(self, drop: TimedDrop, label: ttk.Label) -> None:
+        dark = getattr(self._settings, "dark_mode", False)
         progress_text: str
         progress_color: str = ''
         if drop.is_claimed:
-            progress_color = "green"
+            progress_color = "#4cd964" if dark else "green"
             progress_text = _("gui", "inventory", "status", "claimed")
         elif drop.can_claim:
-            progress_color = "goldenrod"
+            progress_color = "#e3b341" if dark else "goldenrod"
             progress_text = _("gui", "inventory", "status", "ready_to_claim")
         elif drop.current_minutes or drop.can_earn():
             progress_text = _("gui", "inventory", "percent_progress").format(
@@ -1911,12 +1952,12 @@ class SettingsPanel:
 
         # Warning message
         ttk.Label(
-            advanced_center, text=_("gui", "settings", "advanced", "warning"), foreground="red"
+            advanced_center, text=_("gui", "settings", "advanced", "warning"), style="red.TLabel"
         ).grid(column=0, row=(irow := 0), columnspan=2)
         ttk.Label(
             advanced_center,
             text=_("gui", "settings", "advanced", "warning_text"),
-            foreground="goldenrod",
+            style="yellow.TLabel",
         ).grid(column=0, row=(irow := irow + 1), columnspan=2)
         # Toggles for badges and emotes, and available drops check
         ttk.Label(
@@ -2717,27 +2758,30 @@ class GUIManager:
         # print to our custom output
         self.output.print(message)
 
-    def _set_title_bar_color(self, color: int) -> None:
+    def _set_title_bar_color(self, dark: bool) -> None:
         """
-        Set the Windows title bar color to match the theme.
+        Set the Windows title bar color and dark mode attributes to match the theme.
         Only works on Windows with DWM enabled.
-
-        Args:
-            color: ARGB color value (e.g., 0x001E1E1E for dark gray).
         """
         if sys.platform != "win32":
             return
-        # DWMWA_CAPTION_COLOR = 35
-        DWMWA_CAPTION_COLOR = 35
-        hwnd = self._root.winfo_id()
-        frame_hwnd = ctypes.windll.user32.GetParent(hwnd)
-        color_value = ctypes.c_int(color)
-        ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            frame_hwnd,
-            DWMWA_CAPTION_COLOR,
-            ctypes.byref(color_value),
-            ctypes.sizeof(ctypes.c_int),
-        )
+        try:
+            hwnd = self._root.winfo_id()
+            frame_hwnd = ctypes.windll.user32.GetParent(hwnd) or hwnd
+            dark_val = ctypes.c_int(1 if dark else 0)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                frame_hwnd, 20, ctypes.byref(dark_val), ctypes.sizeof(ctypes.c_int)
+            )
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                frame_hwnd, 19, ctypes.byref(dark_val), ctypes.sizeof(ctypes.c_int)
+            )
+            color = 0x001E1E1E if dark else 0xFFFFFFFF
+            color_val = ctypes.c_int(color)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                frame_hwnd, 35, ctypes.byref(color_val), ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception:
+            pass
 
     def apply_theme(self, dark: bool) -> None:
         """
@@ -2812,6 +2856,10 @@ class GUIManager:
         s.configure("TLabel", background=bg, foreground=fg)
         s.configure("TLabelframe", background=bg, foreground=fg)
         s.configure("TLabelframe.Label", background=bg, foreground=fg)
+        # Colored label styles (accessible in both dark and light modes)
+        s.configure("green.TLabel", background=bg, foreground="#4cd964" if dark else "green")
+        s.configure("yellow.TLabel", background=bg, foreground="#e3b341" if dark else "goldenrod")
+        s.configure("red.TLabel", background=bg, foreground="#ff6b6b" if dark else "red")
         # Buttons and checks
         s.configure("TButton", background=surface, foreground=fg, bordercolor=border)
         s.map(
@@ -2905,8 +2953,12 @@ class GUIManager:
         self.settings._exclude_list.configure_theme(
             bg=surface, fg=fg, sel_bg=sel_bg, sel_fg=sel_fg
         )
-        # Inventory canvas
+        # Inventory canvas and cards
         self.inv.configure_theme(bg=bg)
+        # Channel list tag
+        self.channels.configure_theme(dark=dark)
+        # Root window background
+        self._root.configure(background=bg)
 
         # Tk option database for selection/popup list readability (affects Tk-backed widgets)
         # Global selection colors and listbox defaults (covers Combobox dropdown)
@@ -2936,13 +2988,8 @@ class GUIManager:
         ):
             self._root.option_add(key, sel_fg)
 
-        # Set Windows title bar color to match dark theme
-        if dark:
-            # Use dark gray color 0x001E1E1E (ARGB format, matches bg color #1e1e1e)
-            self._set_title_bar_color(0x001E1E1E)
-        else:
-            # Reset to system default title bar color
-            self._set_title_bar_color(0xFFFFFFFF)
+        # Set Windows title bar color and dark mode to match theme
+        self._set_title_bar_color(dark)
 
 
 ###################

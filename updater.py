@@ -119,6 +119,8 @@ async def check_for_updates(gui):
 
             dialog = tk.Toplevel(gui._root)
             try:
+                bg = gui._style.lookup("TFrame", "background") or ("#1e1e1e" if getattr(gui._twitch.settings, "dark_mode", False) else "#f0f0f0")
+                dialog.configure(bg=bg)
                 dialog.title("Update Available")
                 rx = gui._root.winfo_x()
                 ry = gui._root.winfo_y()
