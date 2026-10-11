@@ -22,8 +22,10 @@
 > ### 🚀 Key Enhancements in this Fork:
 > - 🔄 **Built-in Auto-Updater**: Automatic update checks on startup and periodically every 1 hour in the background. If minimized to the system tray, it restores the window, notifies you with sound, and downloads with an interactive progress bar before restarting seamlessly.
 > - ⚡ **Continuous Upstream Synchronization**: Automatically pulls and merges the latest updates from DevilXD every hour (ensuring Twitch GraphQL hashes and API changes are always up to date).
+> - 🎨 **Refined Light & Dark Themes**: High-contrast, WCAG-compliant color palettes for both Light and Dark themes, dynamic theme switching without desynchronization, immersive dark mode on Windows 10/11 title bars, and accessible status indicators.
+> - 🌐 **Full 21-Language Synchronization**: 100% key parity and coverage across all 21 supported language files, with seamless fallback handling.
 > - 🛡️ **Stability & Engine Audit Fixes**:
->   - **Dynamic Watch Telemetry**: Dynamic `client_time` and payloads to prevent bot detection and stalled progress.
+>   - **Resilient HLS HEAD Mining**: Exception-safe network loops, connection-close headers, rate-limiting jitter, and instant offline (404/410) stream detection.
 >   - **Reliable Drop Claiming**: Accurate claim eligibility checks preventing false claims on unearned drops.
 >   - **Session Re-authentication**: Automatic 401 token invalidation and refresh for uninterrupted 24/7 farming.
 >   - **GUI Memory & Concurrency Protections**: Fixed timer race conditions, listener leaks, theme resets, and bounded console buffers.
@@ -33,12 +35,14 @@ This application allows you to AFK mine timed Twitch drops, without having to wo
 
 ### How It Works:
 
-Every several seconds, the application pretends to watch a particular stream by fetching stream metadata - this is enough to advance the drops. Note that this completely bypasses the need to download any actual stream video and sound. To keep the status (ONLINE or OFFLINE) of the channels up-to-date, there's a websocket connection established that receives events about streams going up or down, or updates regarding the current amount of viewers.
+Every several seconds, the application pretends to watch a particular stream by issuing lightweight HEAD requests to stream playlist chunks - this is enough to advance the drops (~35MB RAM, no browser needed). Note that this completely bypasses the need to download any actual stream video and sound. To keep the status (ONLINE or OFFLINE) of the channels up-to-date, there's a websocket connection established that receives events about streams going up or down, or updates regarding the current amount of viewers.
 
 ### Features:
 
 - **Built-in Auto-Updater**: Keeps your miner updated automatically without manual downloads.
 - Stream-less drop mining - save on bandwidth.
+- **Refined Light & Dark Themes**: Dynamic runtime switching, accessible colors, and Windows title bar integration.
+- **21 Languages Supported**: Fully localized interface across 21 languages with automatic fallback.
 - Game priority and exclusion lists, allowing you to focus on mining what you want, in the order you want, and ignore what you don't want.
 - Sharded websocket connection, allowing for tracking up to `199` channels at the same time.
 - Automatic drop campaigns discovery based on linked accounts (requires you to do [account linking](https://www.twitch.tv/drops/campaigns) yourself though).
@@ -91,7 +95,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 - The Linux app is built and distributed using two distinct portable-executable formats: [AppImage](https://appimage.org/) and [PyInstaller](https://pyinstaller.org/).
 - There are no major differences between the two formats, but if you're looking for a recommendation, use the AppImage.
 - The Linux app should work out of the box on any modern distribution, as long as it has `glibc>=2.35`, plus a working display server.
-- Every feature of the app is expected to work on Linux just as well as it does on Windows. If you find something that's broken, please [open a new issue](https://github.com/DevilXD/TwitchDropsMiner/issues/new).
+- Every feature of the app is expected to work on Linux just as well as it does on Windows. If you find something that's broken, please [open a new issue](https://github.com/NobodySan97/TwitchDropsMiner/issues/new).
 - The size of the Linux app is significantly larger than the Windows app due to the inclusion of the `gtk3` library (and its dependencies), which is required for proper system tray/notifications support.
 - As an alternative to the native Linux app, you can run the Windows app via [Wine](https://www.winehq.org/) instead. It works really well!
 
@@ -99,7 +103,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 
 - The macOS version is packaged using PyInstaller into a standalone `.app` bundle, distributed as a ZIP archive.
 - Since this application is not signed with a paid Apple Developer Certificate, **macOS Gatekeeper will block it** on the first run (saying it "The application is damaged and can't be opened").
-  - **To fix this**: Either open the Terminal in the folder the app is in (or navigating with `cd path/to/folder`) and enter `xattr -cr Twitch Drops Miner (by DevilXD).app` or just type `xattr -cr ` (make sure to put a space at the end), drag and drop the `Twitch Drops Miner (by DevilXD).app` file into the terminal window (this will auto-fill the path) and enter
+  - **To fix this**: Either open the Terminal in the folder the app is in (or navigate with `cd path/to/folder`) and enter `xattr -cr "Twitch Drops Miner (by DevilXD).app"` or just type `xattr -cr ` (make sure to put a space at the end), drag and drop the `Twitch Drops Miner (by DevilXD).app` file into the terminal window (this will auto-fill the path) and press Enter.
 - Persistent files (like `cookies.jar`, `settings.json`, `lock.file` and the `cache` folder) are stored inside the application bundle in `Twitch Drops Miner (by DevilXD).app/Contents/MacOS` (to access them Right-click the application and select `Show Package Contents`)
 
 ### Advanced Usage:
