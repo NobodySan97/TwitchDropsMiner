@@ -88,7 +88,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 
 - To achieve a portable-executable format, the application is packaged with PyInstaller into an `EXE`. Some antivirus engines (including Windows Defender) might report the packaged executable as a trojan, because PyInstaller has been used by others to package malicious Python code in the past. These reports can be safely ignored. If you absolutely do not trust the executable, you'll have to install Python yourself and run everything from source.
 - The executable uses the `%TEMP%` directory for temporary runtime storage of files, that don't need to be exposed to the user (like compiled code and translation files). For persistent storage, the directory the executable resides in is used instead.
-- The autostart feature is implemented as a registry entry to the current user's (`HKCU`) autostart key. It is only altered when toggling the respective option. If you relocate the app to a different directory, the autostart feature will stop working, until you toggle the option off and back on again
+- The autostart feature is implemented as a registry entry to the current user's (`HKCU`) autostart key. It is only altered when toggling the respective option. If you relocate the app to a different directory, the autostart feature will stop working, until you toggle the option off and back on again.
 
 ### Notes about the Linux build:
 
@@ -104,7 +104,7 @@ Every several seconds, the application pretends to watch a particular stream by 
 - The macOS version is packaged using PyInstaller into a standalone `.app` bundle, distributed as a ZIP archive.
 - Since this application is not signed with a paid Apple Developer Certificate, **macOS Gatekeeper will block it** on the first run (saying it "The application is damaged and can't be opened").
   - **To fix this**: Either open the Terminal in the folder the app is in (or navigate with `cd path/to/folder`) and enter `xattr -cr "Twitch Drops Miner (by DevilXD).app"` or just type `xattr -cr ` (make sure to put a space at the end), drag and drop the `Twitch Drops Miner (by DevilXD).app` file into the terminal window (this will auto-fill the path) and press Enter.
-- Persistent files (like `cookies.jar`, `settings.json`, `lock.file` and the `cache` folder) are stored inside the application bundle in `Twitch Drops Miner (by DevilXD).app/Contents/MacOS` (to access them Right-click the application and select `Show Package Contents`)
+- Persistent files (like `cookies.jar`, `settings.json`, `lock.file` and the `cache` folder) are stored inside the application bundle in `Twitch Drops Miner (by DevilXD).app/Contents/MacOS` (to access them Right-click the application and select `Show Package Contents`).
 
 ### Advanced Usage:
 
@@ -199,7 +199,7 @@ placed past the period character at the end.
 @Eriza-Z - For the entirety of the Indonesian translation.  
 @casungo - For the entirety of the Italian (Italiano) translation.  
 @ShimadaNanaki - For the entirety of the Japanese (日本語) translation.  
-@biroman -  For the entirety of the Norwegian (Norsk) translation.  
+@biroman - For the entirety of the Norwegian (Norsk) translation.  
 @Patriot99 - For the Polish (Polski) translation and revisions (co-authored with @DevilXD).  
 @zarigata - For the entirety of the Portuguese (Português) translation.  
 @Sergo1217 - For the entirety of the Russian (Русский) translation.  
