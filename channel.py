@@ -441,6 +441,7 @@ class Channel:
         if needs_display:
             self.display()
 
+    # async def _send_watch_playlist(self) -> bool:
     async def send_watch(self) -> bool:
         """
         This performs a HEAD request on the stream's current playlist,

@@ -960,6 +960,7 @@ class Twitch:
                 self.stop_watching()
                 self.change_state(State.CHANNEL_SWITCH)
                 continue
+            # logger.log(CALL, f"Sending watch payload to: {channel.name}")
             last_sent: float = time()
             succeeded: bool = await channel.send_watch()
             if not succeeded:
