@@ -26,3 +26,7 @@ settings.json
 /*.AppImage.zsync
 .DS_Store
 *.app
+
+# Agents and skills
+/.agents
+skills-lock.json

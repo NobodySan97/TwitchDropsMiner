@@ -1286,7 +1286,7 @@ class TrayIcon:
 
         # Hides Tray button for macOS
         if sys.platform != "darwin":
-            self._button.grid(column=0, row=0, sticky="ne")
+            self._button.grid(column=0, row=1, sticky="ne")
 
     def __del__(self) -> None:
         self.stop()
@@ -1334,6 +1334,11 @@ class TrayIcon:
             return lambda: loop.call_soon_threadsafe(func)
 
         menu = pystray.Menu(
+            pystray.MenuItem(
+                "Update Available...",
+                bridge(self._on_tray_update_clicked),
+                visible=lambda item: self._manager.pending_update is not None,
+            ),
             pystray.MenuItem(_("gui", "tray", "show"), bridge(self.restore), default=True),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(_("gui", "tray", "quit"), bridge(self.quit)),
@@ -1343,6 +1348,10 @@ class TrayIcon:
         )
         # self.icon.run_detached()
         loop.run_in_executor(None, self.icon.run)
+
+    def _on_tray_update_clicked(self):
+        self.restore()
+        self._manager.show_pending_update()
 
     def stop(self):
         if self.icon is not None:
@@ -1373,6 +1382,8 @@ class TrayIcon:
                 pass
         if self.icon is not None:
             self.icon.visible = False
+        if self._manager.pending_update is not None:
+            self._manager.show_pending_update()
 
     def notify(
         self, message: str, title: str | None = None, duration: float = 10
@@ -1404,11 +1415,42 @@ class TrayIcon:
             self.icon.icon = self._icon_images[state]
 
 
+class UpdateBanner(ttk.Frame):
+    def __init__(self, manager: GUIManager, master: ttk.Widget):
+        super().__init__(master, style="UpdateBanner.TFrame", padding=(8, 4))
+        self._manager = manager
+        self._lbl = ttk.Label(self, text="", style="UpdateBanner.TLabel", font=("Segoe UI", 9, "bold"))
+        self._lbl.pack(side="left", padx=8)
+
+        self._btn_frame = ttk.Frame(self, style="UpdateBanner.TFrame")
+        self._btn_frame.pack(side="right", padx=4)
+
+        self._btn_update = ttk.Button(self._btn_frame, text="Update Now")
+        self._btn_update.pack(side="left", padx=3)
+
+        self._btn_later = ttk.Button(self._btn_frame, text="Later")
+        self._btn_later.pack(side="left", padx=3)
+
+        self._btn_ignore = ttk.Button(self._btn_frame, text="Ignore")
+        self._btn_ignore.pack(side="left", padx=3)
+
+    def show(self, sha: str, on_update, on_later, on_ignore):
+        display_sha = sha[:7] if len(sha) >= 7 else "latest"
+        self._lbl.config(text=f"🚀 A new update is available ({display_sha}).")
+        self._btn_update.config(command=on_update)
+        self._btn_later.config(command=on_later)
+        self._btn_ignore.config(command=on_ignore)
+        self.grid(column=0, row=0, sticky="ew", pady=(0, 4))
+
+    def hide(self):
+        self.grid_remove()
+
+
 class Notebook:
     def __init__(self, manager: GUIManager, master: ttk.Widget):
         self._nb = ttk.Notebook(master)
-        self._nb.grid(column=0, row=0, sticky="nsew")
-        master.rowconfigure(0, weight=1)
+        self._nb.grid(column=0, row=1, sticky="nsew")
+        master.rowconfigure(1, weight=1)
         master.columnconfigure(0, weight=1)
         # prevent entries from being selected after switching tabs
         self._nb.bind("<<NotebookTabChanged>>", lambda event: manager._root.focus_set())
@@ -2533,6 +2575,15 @@ class GUIManager:
         root_frame.grid(column=0, row=0, sticky="nsew")
         root.rowconfigure(0, weight=1)
         root.columnconfigure(0, weight=1)
+        root_frame.rowconfigure(0, weight=0)
+        root_frame.rowconfigure(1, weight=1)
+        root_frame.columnconfigure(0, weight=1)
+
+        # Update banner
+        self.pending_update: dict | None = None
+        self.update_banner = UpdateBanner(self, root_frame)
+        self.update_banner.hide()
+
         # Notebook
         self.tabs = Notebook(self, root_frame)
         # Tray icon - place after notebook so it draws on top of the tabs space
@@ -2602,6 +2653,7 @@ class GUIManager:
             self._root.after_idle(self.tray.minimize)
         else:
             self._root.after_idle(self._root.deiconify)
+        self._root.bind("<Map>", self._on_window_mapped, add="+")
 
     # https://stackoverflow.com/questions/56329342/tkinter-treeview-background-tag-not-working
     def _fixed_map(self, option):
@@ -2646,6 +2698,65 @@ class GUIManager:
     @property
     def close_requested(self) -> bool:
         return self._close_requested.is_set()
+
+    @property
+    def is_in_tray(self) -> bool:
+        """True if the window is currently minimized to the system tray."""
+        return self._root.state() == "withdrawn" or (
+            self.tray.icon is not None and getattr(self.tray.icon, "visible", False)
+        )
+
+    @property
+    def is_iconic(self) -> bool:
+        """True if the window is minimized to the taskbar."""
+        return self._root.state() == "iconic"
+
+    @property
+    def is_hidden(self) -> bool:
+        """True if the window is not currently visible to the user."""
+        try:
+            return self.is_in_tray or self.is_iconic or not bool(self._root.winfo_viewable())
+        except Exception:
+            return False
+
+    @property
+    def is_visible(self) -> bool:
+        """True if the window is visible and active on screen."""
+        try:
+            return self._root.state() in ("normal", "zoomed") and bool(self._root.winfo_viewable())
+        except Exception:
+            return True
+
+    def set_pending_update(self, sha: str, assets: list):
+        self.pending_update = {"sha": sha, "assets": assets}
+        if self.is_visible:
+            self.show_pending_update()
+
+    def show_pending_update(self):
+        if not self.pending_update:
+            return
+        import updater
+        sha = self.pending_update["sha"]
+        assets = self.pending_update["assets"]
+
+        def _on_update():
+            self.update_banner.hide()
+            loop = asyncio.get_running_loop()
+            loop.create_task(updater.perform_update(self, assets))
+
+        def _on_later():
+            self.update_banner.hide()
+
+        def _on_ignore():
+            self.update_banner.hide()
+            updater.decline_update(sha)
+            self.pending_update = None
+
+        self.update_banner.show(sha, _on_update, _on_later, _on_ignore)
+
+    def _on_window_mapped(self, event: tk.Event):
+        if event.widget == self._root and self.pending_update is not None and not self.is_hidden:
+            self.show_pending_update()
 
     async def wait_until_closed(self):
         # wait until the user closes the window
@@ -2856,6 +2967,11 @@ class GUIManager:
         s.configure("TLabel", background=bg, foreground=fg)
         s.configure("TLabelframe", background=bg, foreground=fg)
         s.configure("TLabelframe.Label", background=bg, foreground=fg)
+        # UpdateBanner styles
+        banner_bg = "#261738" if dark else "#ece2fe"
+        banner_fg = "#ffffff" if dark else "#2d164d"
+        s.configure("UpdateBanner.TFrame", background=banner_bg)
+        s.configure("UpdateBanner.TLabel", background=banner_bg, foreground=banner_fg)
         # Colored label styles (accessible in both dark and light modes)
         s.configure("green.TLabel", background=bg, foreground="#4cd964" if dark else "green")
         s.configure("yellow.TLabel", background=bg, foreground="#e3b341" if dark else "goldenrod")

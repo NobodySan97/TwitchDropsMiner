@@ -42,13 +42,26 @@ def cleanup_old_executables():
         pass
 
 
+_pending_update: dict | None = None
 _declined_sha: str | None = None
+_notified_sha: str | None = None
+_update_in_progress: bool = False
+
+
+def decline_update(sha: str):
+    global _declined_sha, _pending_update
+    _declined_sha = sha
+    _pending_update = None
 
 
 async def check_for_updates(gui):
     # Only run in compiled PyInstaller mode
     if not getattr(sys, "frozen", False):
         print("Updater: Not running in compiled mode, skipping update check.")
+        return
+
+    global _notified_sha, _pending_update
+    if _update_in_progress:
         return
 
     # Clean up any leftover .old binaries from previous update now that old process is dead
@@ -73,7 +86,6 @@ async def check_for_updates(gui):
                 break
 
         # If user previously declined this specific build during this session, skip
-        global _declined_sha
         if remote_sha and remote_sha == _declined_sha:
             return
 
@@ -101,61 +113,23 @@ async def check_for_updates(gui):
             # macOS .app bundle in-place replacement is not supported via simple executable swap
             return
 
-        async def prompt_update_async():
-            gui.grab_attention(sound=True)
-            import tkinter as tk
-            from tkinter import ttk
+        display_sha = remote_sha[:7] if (remote_sha and _is_hex_hash(remote_sha)) else "latest"
+        _pending_update = {"sha": remote_sha or "latest", "assets": assets}
 
-            result = False
-            event = asyncio.Event()
-
-            def on_yes():
-                nonlocal result
-                result = True
-                event.set()
-
-            def on_no():
-                event.set()
-
-            dialog = tk.Toplevel(gui._root)
-            try:
-                bg = gui._style.lookup("TFrame", "background") or ("#1e1e1e" if getattr(gui._twitch.settings, "dark_mode", False) else "#f0f0f0")
-                dialog.configure(bg=bg)
-                dialog.title("Update Available")
-                rx = gui._root.winfo_x()
-                ry = gui._root.winfo_y()
-                if rx < 0 or ry < 0:
-                    sw = dialog.winfo_screenwidth()
-                    sh = dialog.winfo_screenheight()
-                    dialog.geometry("380x150+%d+%d" % (max(0, (sw - 380) // 2), max(0, (sh - 150) // 2)))
-                else:
-                    dialog.geometry("380x150+%d+%d" % (rx + 50, ry + 50))
-                dialog.resizable(False, False)
-                dialog.transient(gui._root)
-                dialog.grab_set()
-                dialog.protocol("WM_DELETE_WINDOW", on_no)
-
-                display_sha = remote_sha if _is_hex_hash(remote_sha) else "latest"
-                msg = f"A new development build is available (commit: {display_sha}).\nDo you want to update now?"
-                lbl = ttk.Label(dialog, text=msg, justify="center")
-                lbl.pack(pady=20)
-
-                btn_frame = ttk.Frame(dialog)
-                btn_frame.pack(pady=10)
-
-                ttk.Button(btn_frame, text="Yes", command=on_yes).pack(side="left", padx=10)
-                ttk.Button(btn_frame, text="No", command=on_no).pack(side="right", padx=10)
-
-                await event.wait()
-            finally:
-                dialog.destroy()
-            return result
-
-        wants_update = await prompt_update_async()
-        if wants_update:
-            await perform_update(gui, assets)
+        # Route update notification without stealing focus or interrupting full-screen apps
+        if gui.is_hidden:
+            gui.pending_update = _pending_update
+            # Notify quietly in system tray only once per new release
+            if _notified_sha != remote_sha:
+                _notified_sha = remote_sha
+                gui.tray.notify(
+                    f"A new build is available ({display_sha}). Restore window to update.",
+                    "Twitch Drops Miner",
+                    duration=10.0,
+                )
         else:
-            _declined_sha = remote_sha
+            # Window is visible: show the non-intrusive in-app banner
+            gui.set_pending_update(remote_sha or "latest", assets)
 
     except asyncio.CancelledError:
         pass
@@ -182,12 +156,18 @@ async def run_update_loop(gui, interval_seconds: int = 3600):
 
 
 async def perform_update(gui, assets):
+    global _update_in_progress
+    if _update_in_progress:
+        return
+    _update_in_progress = True
+
     system = platform.system().lower()
     machine = platform.machine().lower()
 
     if system == "windows":
         asset_name = "Twitch.Drops.Miner.Windows.zip"
     elif system == "darwin":
+        _update_in_progress = False
         messagebox.showinfo("Update", "macOS auto-update is not supported. Please download manually.")
         return
     else:
@@ -201,6 +181,7 @@ async def perform_update(gui, assets):
             break
 
     if not asset_to_download:
+        _update_in_progress = False
         messagebox.showerror("Update Failed", f"Could not find an update package for your system ({system} {machine}).")
         return
 
@@ -339,6 +320,7 @@ async def perform_update(gui, assets):
     except Exception as e:
         messagebox.showerror("Update Error", f"An error occurred while updating:\n{e}")
     finally:
+        _update_in_progress = False
         if should_destroy_prog_win:
             try:
                 prog_win.destroy()

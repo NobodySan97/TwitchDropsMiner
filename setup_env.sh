@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 
-dirpath=$(dirname "$(readlink -f "$0")")
+set -Eeuo pipefail
+
+dirpath=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+
+pause() {
+    if [ -t 0 ] && [ "${1:-}" != "--nopause" ]; then
+        read -rp "Press any key to continue..."
+    fi
+}
 
 # Check if git is installed
 if ! command -v git &> /dev/null; then
     echo
     echo "No git executable found in PATH!"
     echo
-    read -p "Press any key to continue..."
+    pause "${1:-}"
     exit 1
 fi
 
@@ -15,12 +23,11 @@ fi
 if [ ! -d "$dirpath/env" ]; then
     echo
     echo "Creating the env folder..."
-    python3 -m venv "$dirpath/env"
-    if [ $? -ne 0 ]; then
+    if ! python3 -m venv "$dirpath/env"; then
         echo
         echo "No python executable found in PATH or failed to create virtual environment!"
         echo
-        read -p "Press any key to continue..."
+        pause "${1:-}"
         exit 1
     fi
 fi
@@ -28,18 +35,20 @@ fi
 # Activate the virtual environment and install requirements
 echo
 echo "Installing requirements.txt..."
-"$dirpath/env/bin/python" -m pip install -U pip
-"$dirpath/env/bin/pip" install wheel
-"$dirpath/env/bin/pip" install -r "$dirpath/requirements.txt"
-if [ $? -ne 0 ]; then
+if ! (
+    "$dirpath/env/bin/python" -m pip install -U pip && \
+    "$dirpath/env/bin/pip" install wheel && \
+    "$dirpath/env/bin/pip" install -r "$dirpath/requirements.txt"
+); then
     echo
     echo "Failed to install requirements."
     echo
-    read -p "Press any key to continue..."
+    pause "${1:-}"
     exit 1
 fi
 
 echo
 echo "Environment setup completed successfully."
 echo
-read -p "Press any key to continue..."
+pause "${1:-}"
+
