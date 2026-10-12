@@ -480,6 +480,17 @@ GQL_QUERIES: dict[str, GQLPersistedQuery] = {
             "sortTypeIsRecency": False,
         },
     ),
+    "BrowseAllDirectories": GQLPersistedQuery(
+        "BrowsePage_AllDirectories",
+        "2f67f71ba89f3c0ed26a141ec00da1defecb2303595f5cda4298169549783d9e",
+        variables={
+            "limit": 100,
+            "options": {
+                "recommendationsContext": {"platform": "web"},
+                "sort": "VIEWER_COUNT",
+            },
+        },
+    ),
     "SlugRedirect": GQLPersistedQuery(  # can be used to turn game name -> game slug
         "DirectoryGameRedirect",
         "1f0300090caceec51f33c5e20647aceff9017f740f223c3c532ba6fa59f6b6cc",

@@ -1646,6 +1646,17 @@ class Twitch:
             "teamfight-tactics", "hearthstone", "fortnite", "genshin-impact", "honkai-star-rail",
             "zenless-zone-zero", "the-first-descendant", "throne-and-liberty", "marvel-rivals",
             "once-human", "lost-ark", "diablo-iv", "black-desert", "fallout-76", "guild-wars-2",
+            "hunt-showdown", "paladins", "deadlock", "star-citizen", "cyberpunk-2077", "no-mans-sky",
+            "brawlhalla", "world-of-tanks", "delta-force", "dungeon-fighter-online", "conan-exiles",
+            "arena-breakout-infinite", "dying-light-2", "ark-survival-ascended", "space-marine-2",
+            "street-fighter-6", "tekken-8", "payday-3", "the-division-2", "magic-the-gathering-arena",
+            "yu-gi-oh-master-duel", "naraka-bladepoint", "eternal-return", "dark-and-darker",
+            "wuthering-waves", "world-of-warships", "war-thunder", "enlisted", "crossout",
+            "star-trek-online", "neverwinter", "star-wars-the-old-republic", "old-school-runescape",
+            "runescape", "dayz", "scum", "7-days-to-die", "project-zomboid", "sons-of-the-forest",
+            "valheim", "satisfactory", "deep-rock-galactic", "helldivers-2", "darktide",
+            "killing-floor-2", "phasmophobia", "lethal-company", "the-finals", "xdefiant",
+            "arc-raiders", "alien-isolation", "dragons-dogma-ii", "elden-ring", "the-witcher-3-wild-hunt",
         ]
         priority_slugs = [
             re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', g.lower())).strip('-'))
@@ -1655,17 +1666,46 @@ class Twitch:
             re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', g.lower())).strip('-'))
             for g in self.settings.exclude if g
         )
-        all_slugs = [s for s in dict.fromkeys(priority_slugs + popular_slugs) if s not in exclude_slugs]
+
+        # Dynamic discovery: query Twitch Browse to discover any active games/categories currently streaming
+        dynamic_slugs: list[str] = []
+        non_game_slugs = {
+            "just-chatting", "special-events", "talk-shows-podcasts", "retro", "art",
+            "music", "asmr", "pools-bikinis-and-beaches", "sports", "always-on", "games-demos",
+        }
+        try:
+            browse_resp = await self.gql_request(GQL_QUERIES["BrowseAllDirectories"], authenticated=False)
+            edges = browse_resp.get("data", {}).get("directoriesWithTags", {}).get("edges", [])
+            for edge in edges:
+                slug = edge.get("node", {}).get("slug")
+                if slug and slug not in non_game_slugs:
+                    dynamic_slugs.append(slug)
+        except Exception as e:
+            logger.debug(f"Dynamic directory query failed: {e}")
+
+        all_slugs = [
+            s for s in dict.fromkeys(priority_slugs + dynamic_slugs + popular_slugs)
+            if s not in exclude_slugs
+        ]
 
         game_queries = [
-            GQL_QUERIES["GameDirectory"].with_variables({"slug": slug, "limit": 6})
+            GQL_QUERIES["GameDirectory"].with_variables({
+                "slug": slug,
+                "limit": 6,
+                "options": {
+                    "includeRestricted": ["SUB_ONLY_LIVE"],
+                    "systemFilters": ["DROPS_ENABLED"],
+                },
+            })
             for slug in all_slugs
         ]
         streamer_ids: list[str] = []
         streamer_game_map: dict[str, JsonType] = {}
         games_by_id: dict[str, JsonType] = {}
         games_by_name: dict[str, JsonType] = {}
-        for slug_chunk in chunk(game_queries, 15):
+        priority_empty_slugs: list[str] = []
+
+        for slug_chunk in chunk(game_queries, 20):
             try:
                 res_list: list[JsonType] = await self.gql_request(slug_chunk, authenticated=False)
                 for res in res_list:
@@ -1682,11 +1722,10 @@ class Twitch:
                         games_by_name[g_info["name"].lower()] = g_info
 
                         streams = game_data.get("streams", {}).get("edges", [])
-                        def has_drop_tag(st: JsonType) -> bool:
-                            tags = [t.get("name", "").lower() for t in st.get("node", {}).get("freeformTags", []) or []]
-                            return any("drop" in t for t in tags)
-                        sorted_streams = sorted(streams, key=has_drop_tag, reverse=True)
-                        for st in sorted_streams[:4]:
+                        if not streams and g_info.get("slug") in priority_slugs:
+                            priority_empty_slugs.append(g_info["slug"])
+
+                        for st in streams[:4]:
                             bid = st.get("node", {}).get("broadcaster", {}).get("id")
                             if bid:
                                 sid_str = str(bid)
@@ -1694,6 +1733,35 @@ class Twitch:
                                 streamer_game_map[sid_str] = g_info
             except Exception as e:
                 logger.debug(f"Game directory query chunk error: {e}")
+
+        # Fallback for priority games that returned 0 streams with DROPS_ENABLED filter:
+        # check top live channels without filter in case broadcasters did not tag their stream
+        if priority_empty_slugs:
+            fallback_queries = [
+                GQL_QUERIES["GameDirectory"].with_variables({"slug": slug, "limit": 6})
+                for slug in priority_empty_slugs
+            ]
+            for p_chunk in chunk(fallback_queries, 20):
+                try:
+                    res_list = await self.gql_request(p_chunk, authenticated=False)
+                    for res in res_list:
+                        game_data = res.get("data", {}).get("game")
+                        if game_data and game_data.get("name"):
+                            g_info = {
+                                "id": str(game_data.get("id", "")),
+                                "name": game_data.get("name"),
+                                "slug": game_data.get("slug"),
+                                "boxArtURL": game_data.get("boxArtURL"),
+                            }
+                            streams = game_data.get("streams", {}).get("edges", [])
+                            for st in streams[:4]:
+                                bid = st.get("node", {}).get("broadcaster", {}).get("id")
+                                if bid:
+                                    sid_str = str(bid)
+                                    streamer_ids.append(sid_str)
+                                    streamer_game_map[sid_str] = g_info
+                except Exception as e:
+                    logger.debug(f"Priority fallback query chunk error: {e}")
 
         discovered: dict[str, JsonType] = {}
         if streamer_ids:
