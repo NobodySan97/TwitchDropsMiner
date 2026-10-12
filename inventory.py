@@ -79,7 +79,12 @@ class BaseDrop:
         if "self" in data and data["self"] is not None:
             self.claim_id = data["self"].get("dropInstanceID")
             self.is_claimed = bool(data["self"].get("isClaimed"))
-        elif self.benefits:
+        if (
+            self.id in self.campaign._twitch._claimed_drops
+            or (self.claim_id and self.claim_id in self.campaign._twitch._claimed_drops)
+        ):
+            self.is_claimed = True
+        elif not self.is_claimed and self.benefits:
             claimed_matches = []
             cutoff = self.campaign.ends_at + timedelta(hours=24)
             for benefit in self.benefits:
@@ -183,6 +188,9 @@ class BaseDrop:
         result = await self._claim()
         if result:
             self.is_claimed = result
+            self._twitch._claimed_drops.add(self.id)
+            if self.claim_id:
+                self._twitch._claimed_drops.add(self.claim_id)
             claim_text = (
                 f"{self.campaign.game.name}\n"
                 f"{self.rewards_text()} "
@@ -429,6 +437,8 @@ class DropsCampaign:
 
     @property
     def eligible(self) -> bool:
+        if self._twitch.settings.mine_unlinked:
+            return True
         if self.has_badge_or_emote:
             return self._twitch.settings.enable_badges_emotes
         return self.linked

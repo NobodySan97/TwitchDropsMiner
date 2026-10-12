@@ -1618,7 +1618,7 @@ class InventoryOverview:
             # linking
             linked_label = display.get("linked")
             if linked_label is not None:
-                if campaign.eligible:
+                if campaign.linked:
                     linked_color = "#4cd964" if dark else "green"
                 else:
                     linked_color = "#ff6b6b" if dark else "red"
@@ -1680,7 +1680,7 @@ class InventoryOverview:
         ).grid(column=1, row=2, sticky="w", padx=4)
         # Linking status
         dark = getattr(self._settings, "dark_mode", False)
-        if campaign.eligible:
+        if campaign.linked:
             link_kwargs = {
                 "style": '',
                 "text": _("gui", "inventory", "status", "linked"),
@@ -1847,6 +1847,7 @@ class _SettingsVars(TypedDict):
     tray_notifications: IntVar
     enable_badges_emotes: IntVar
     available_drops_check: IntVar
+    mine_unlinked: IntVar
 
 
 class SettingsPanel:
@@ -1888,6 +1889,9 @@ class SettingsPanel:
             ),
             "available_drops_check": IntVar(
                 master, int(self._settings.available_drops_check)
+            ),
+            "mine_unlinked": IntVar(
+                master, int(self._settings.mine_unlinked)
             ),
         }
         self._game_names: set[str] = set()
@@ -2024,6 +2028,18 @@ class SettingsPanel:
                 self._settings,
                 "available_drops_check",
                 bool(self._vars["available_drops_check"].get()),
+            ),
+        ).grid(column=1, row=irow, sticky="w")
+        ttk.Label(
+            advanced_center, text=_("gui", "settings", "advanced", "mine_unlinked")
+        ).grid(column=0, row=(irow := irow + 1), sticky="e")
+        ttk.Checkbutton(
+            advanced_center,
+            variable=self._vars["mine_unlinked"],
+            command=lambda: setattr(
+                self._settings,
+                "mine_unlinked",
+                bool(self._vars["mine_unlinked"].get()),
             ),
         ).grid(column=1, row=irow, sticky="w")
 
@@ -3241,6 +3257,7 @@ if __name__ == "__main__":
                 tray_notifications=True,
                 enable_badges_emotes=False,
                 available_drops_check=False,
+                mine_unlinked=False,
                 logging_level=LOGGING_LEVELS[0],
                 priority_mode=PriorityMode.PRIORITY_ONLY,
             )

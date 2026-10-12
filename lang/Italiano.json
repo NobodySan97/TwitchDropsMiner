@@ -157,7 +157,8 @@
                 "warning": "Attenzione!",
                 "warning_text": "Queste opzioni possono causare anomalie nel funzionamento del miner.\nSe riscontri problemi, assicurati che tutte queste opzioni siano disabilitate.",
                 "enable_badges_emotes": "Abilita supporto parziale per stemmi ed emote: ",
-                "available_drops_check": "Abilita controllo extra per drop disponibili: "
+                "available_drops_check": "Abilita controllo extra per drop disponibili: ",
+                "mine_unlinked": "Mina campagne con account non collegati: "
             }
         },
         "help": {
