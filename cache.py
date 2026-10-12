@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 import io
 from typing import Dict, TypedDict, NewType, TYPE_CHECKING
 
+import aiohttp
+
 from utils import json_load, json_save
 from constants import URLType, CACHE_PATH, CACHE_DB
 
@@ -98,10 +100,25 @@ class ImageCache:
         return ImageHash(f"{int(bits, 2):x}.png")
 
     async def get(self, url: URLType, size: ImageSize | None = None) -> PhotoImage:
+        if not url:
+            image = Image_module.new("RGBA", (10, 10), (0, 0, 0, 0))
+            if size is None:
+                size = (10, 10)
+            photo_key = (ImageHash("empty.png"), size)
+            async with self._lock:
+                if photo_key in self._photos:
+                    return self._photos[photo_key]
+                if image.size != size:
+                    image = image.resize(size)
+                photo = PhotoImage(master=self._root, image=image)
+                self._photos[photo_key] = photo
+                return photo
+
+        # 1. Fast cache check under lock
         async with self._lock:
+            img_hash: ImageHash | None = self._hashes.get(url, {}).get("hash")  # type: ignore[assignment]
             image: Image | None = None
-            if url in self._hashes:
-                img_hash = self._hashes[url]["hash"]
+            if img_hash:
                 self._hashes[url]["expires"] = self._new_expires()
                 if img_hash in self._images:
                     image = self._images[img_hash]
@@ -112,20 +129,55 @@ class ImageCache:
                         self._images[img_hash] = image = loaded
                     except (FileNotFoundError, Image_module.UnidentifiedImageError, OSError):
                         pass
-            if image is None:
-                if url:
+
+            if image is not None:
+                if size is None:
+                    size = image.size
+                photo_key = (img_hash, size)
+                if photo_key in self._photos:
+                    photo = self._photos.pop(photo_key)
+                    self._photos[photo_key] = photo
+                    return photo
+                if image.size != size:
                     try:
-                        async with self._twitch.request("GET", url) as response:
-                            if response.status == 200:
-                                loaded = Image_module.open(io.BytesIO(await response.read()))
-                                loaded.load()
-                                image = loaded
-                    except Exception:
-                        pass
-                is_fallback = image is None
-                if is_fallback:
-                    # use a blank transparent image as a fallback
-                    image = Image_module.new("RGBA", (10, 10), (0, 0, 0, 0))
+                        resized = image.resize(size, Image_module.Resampling.LANCZOS)
+                    except OSError:
+                        resized = Image_module.new("RGB", size, (255, 255, 255))
+                else:
+                    resized = image
+                self._photos[photo_key] = photo = PhotoImage(master=self._root, image=resized)
+                if len(self._images) > 512:
+                    for k in list(self._images.keys())[:64]:
+                        del self._images[k]
+                if len(self._photos) > 512:
+                    for k in list(self._photos.keys())[:64]:
+                        del self._photos[k]
+                return photo
+
+        # 2. Network fetch WITHOUT holding lock!
+        image = None
+        try:
+            session = await self._twitch.get_session()
+            timeout = aiohttp.ClientTimeout(total=4.0)
+            async with session.get(url, timeout=timeout) as response:
+                if response.status == 200:
+                    loaded = Image_module.open(io.BytesIO(await response.read()))
+                    loaded.load()
+                    image = loaded
+        except Exception:
+            pass
+
+        is_fallback = image is None
+        if is_fallback:
+            # use a blank transparent image as a fallback
+            image = Image_module.new("RGBA", (10, 10), (0, 0, 0, 0))
+
+        # 3. Store result under lock
+        async with self._lock:
+            if url in self._hashes and self._hashes[url]["hash"] in self._images:
+                img_hash = self._hashes[url]["hash"]
+                image = self._images[img_hash]
+            else:
                 try:
                     img_hash = self._hash(image)
                     self._images[img_hash] = image
@@ -133,12 +185,14 @@ class ImageCache:
                         image.save(CACHE_PATH / img_hash)
                 except Exception:
                     img_hash = ImageHash("fallback.png")
+
                 if not is_fallback and url:
                     self._hashes[url] = {
                         "hash": img_hash,
-                        "expires": self._new_expires()
+                        "expires": self._new_expires(),
                     }
                     self._altered = True
+
             if size is None:
                 size = image.size
             photo_key = (img_hash, size)
@@ -148,11 +202,13 @@ class ImageCache:
                 return photo
             if image.size != size:
                 try:
-                    image = image.resize(size, Image_module.Resampling.LANCZOS)
+                    resized = image.resize(size, Image_module.Resampling.LANCZOS)
                 except OSError:
                     # broken image data surfaced during resize; fall back to blank placeholder
-                    image = Image_module.new("RGB", size, (255, 255, 255))
-            self._photos[photo_key] = photo = PhotoImage(master=self._root, image=image)
+                    resized = Image_module.new("RGB", size, (255, 255, 255))
+            else:
+                resized = image
+            self._photos[photo_key] = photo = PhotoImage(master=self._root, image=resized)
             if len(self._images) > 512:
                 for k in list(self._images.keys())[:64]:
                     del self._images[k]

@@ -1908,15 +1908,21 @@ class Twitch:
         ]
         try:
             for i, coro in enumerate(asyncio.as_completed(add_campaign_tasks), start=1):
-                await coro
-                status_update(
-                    _("gui", "status", "adding_campaigns").format(
-                        counter=f"({i}/{len(campaigns)})"
+                try:
+                    await coro
+                except Exception as exc:
+                    logger.debug(f"Error adding campaign to GUI: {exc}")
+                if i % 5 == 0 or i == len(campaigns):
+                    status_update(
+                        _("gui", "status", "adding_campaigns").format(
+                            counter=f"({i}/{len(campaigns)})"
+                        )
                     )
-                )
                 # this is needed here explicitly, because cache reads from disk don't raise this
                 if self.gui.close_requested:
                     raise ExitRequest()
+        except ExitRequest:
+            raise
         except Exception:
             # asyncio.as_completed doesn't cancel tasks on errors
             for task in add_campaign_tasks:
