@@ -1088,14 +1088,14 @@ class Twitch:
             return False
         for campaign in self.inventory:
             if (
-                campaign.can_earn(channel)  # let the campaign do the "special games" check
+                campaign.can_earn(channel)
                 and (
                     # limit watching to the games the user wants
                     channel.game is not None
                     and channel.drops_enabled
                     and channel.game in self.wanted_games
-                    # let the campaign ignore all channel-related checks
-                    or campaign.game.is_special()
+                    # or an explicit ACL channel whitelisted for this campaign
+                    or bool(campaign.allowed_channels and channel in campaign.allowed_channels)
                 )
             ):
                 return True
@@ -1982,6 +1982,15 @@ class Twitch:
             )
         else:
             campaigns.sort(key=lambda c: c.remaining_minutes)
+        # Always prioritize:
+        # 1. Exact game match (channel is currently streaming this campaign's game)
+        # 2. User priority order from self.wanted_games
+        campaigns.sort(
+            key=lambda c: (
+                0 if (watching_channel.game and c.game == watching_channel.game) else 1,
+                self.wanted_games.index(c.game) if c.game in self.wanted_games else MAX_INT,
+            )
+        )
         return campaigns[0]
 
     async def get_live_streams(

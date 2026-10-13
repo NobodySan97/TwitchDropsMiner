@@ -498,11 +498,11 @@ class DropsCampaign:
                     # or there's no ACL, or the channel is in the ACL
                     (not self.allowed_channels or channel in self.allowed_channels)
                     # and the channel is live and playing the campaign's game,
-                    # or this campaign can be earned anywhere (special game)
+                    # or is an explicit ACL whitelisted channel for this campaign
                     and (
                         ignore_channel_status
                         or channel.game is not None and channel.game == self.game
-                        or self.game.is_special()
+                        or bool(self.allowed_channels and channel in self.allowed_channels)
                     )
                 )
             )
