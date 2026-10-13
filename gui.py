@@ -2295,6 +2295,8 @@ class SettingsPanel:
             self._settings.priority.append(game_name)
             self._settings.alter()
             self.update_priority_choices()
+            self._manager.inv.refresh()
+            self._manager._twitch.change_state(State.GAMES_UPDATE)
         else:
             # already there, set the selection on it
             self._priority_list.selection_set(existing_idx)
@@ -2333,6 +2335,8 @@ class SettingsPanel:
         self._settings.priority.pop(idx)
         self._settings.priority.insert(insert_idx, item)
         self._settings.alter()
+        self._manager.inv.refresh()
+        self._manager._twitch.change_state(State.GAMES_UPDATE)
 
     def priority_delete(self) -> None:
         idx: int | None = self._priority_idx()
@@ -2342,12 +2346,17 @@ class SettingsPanel:
         del self._settings.priority[idx]
         self._settings.alter()
         self.update_priority_choices()
+        self._manager.inv.refresh()
+        self._manager._twitch.change_state(State.GAMES_UPDATE)
 
     def priority_mode(self, event: tk.Event[ttk.Combobox]) -> None:
         mode_name: str = self._vars["priority_mode"].get()
         for value, name in self.PRIORITY_MODES.items():
             if mode_name == name:
                 self._settings.priority_mode = value
+                self._settings.alter()
+                self._manager.inv.refresh()
+                self._manager._twitch.change_state(State.GAMES_UPDATE)
                 break
 
     def exclude_add(self) -> None:
@@ -2369,10 +2378,12 @@ class SettingsPanel:
             else:
                 self._exclude_list.insert("end", game_name)
                 self._exclude_list.see("end")
+            self._manager.inv.refresh()
+            self._manager._twitch.change_state(State.GAMES_UPDATE)
         else:
             # it was already there, select it
-            for i, item in enumerate(self._exclude_list.get(0, "end")):
-                if item == game_name:
+            for i, enumerate_item in enumerate(self._exclude_list.get(0, "end")):
+                if enumerate_item == game_name:
                     existing_idx = i
                     break
             else:
@@ -2392,6 +2403,8 @@ class SettingsPanel:
             self._settings.exclude.discard(item)
             self._settings.alter()
             self.update_excluded_choices()
+            self._manager.inv.refresh()
+            self._manager._twitch.change_state(State.GAMES_UPDATE)
 
 
 class HelpTab:
