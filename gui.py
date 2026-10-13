@@ -2852,6 +2852,11 @@ class GUIManager:
         Requests the GUI application to close.
         The window itself will be closed in the closing sequence later.
         """
+        with suppress(Exception):
+            self._root.withdraw()
+            if self.tray.icon is not None:
+                self.tray.icon.visible = False
+
         self._close_requested.set()
         # notify client we're supposed to close
         self._twitch.close()
@@ -2861,9 +2866,15 @@ class GUIManager:
         """
         Closes the window. Invalidates the logger.
         """
-        self.tray.stop()
-        logging.getLogger("TwitchDrops").removeHandler(self._handler)
-        self._root.destroy()
+        with suppress(Exception):
+            if sys.platform == "win32":
+                ctypes.windll.user32.ShutdownBlockReasonDestroy(self._handle)
+        with suppress(Exception):
+            self.tray.stop()
+        with suppress(Exception):
+            logging.getLogger("TwitchDrops").removeHandler(self._handler)
+        with suppress(Exception):
+            self._root.destroy()
 
     def unfocus(self, event):
         # support pressing ESC to unfocus

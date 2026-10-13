@@ -229,7 +229,10 @@ if __name__ == "__main__":
             if not update_task.done():
                 update_task.cancel()
             client.print(_("gui", "status", "exiting"))
-            await client.shutdown()
+            try:
+                await asyncio.wait_for(client.shutdown(), timeout=5.0)
+            except (asyncio.TimeoutError, Exception) as exc:
+                logger.debug(f"Shutdown completed with exception or timeout: {exc}")
         if not client.gui.close_requested:
             # user didn't request the closure
             client.gui.tray.change_icon("error")
@@ -237,7 +240,10 @@ if __name__ == "__main__":
             client.gui.status.update(_("gui", "status", "terminated"))
             # notify the user about the closure
             client.gui.grab_attention(sound=True)
-        await client.gui.wait_until_closed()
+        try:
+            await asyncio.wait_for(client.gui.wait_until_closed(), timeout=10.0)
+        except (asyncio.TimeoutError, Exception):
+            pass
         # save the application state
         # NOTE: we have to do it after wait_until_closed,
         # because the user can alter some settings between app termination and closing the window
