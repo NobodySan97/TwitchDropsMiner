@@ -70,6 +70,7 @@ class GUITray(TypedDict):
     minimize: str
     show: str
     quit: str
+    update_available: NotRequired[str]
 
 
 class GUILoginForm(TypedDict):
@@ -302,6 +303,7 @@ default_translation: Translation = {
             "minimize": "Minimize to Tray",
             "show": "Show",
             "quit": "Quit",
+            "update_available": "A new build is available ({sha}). Check window to update.",
         },
         "login": {
             "name": "Login Form",

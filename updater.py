@@ -55,17 +55,14 @@ def decline_update(sha: str):
 
 
 async def check_for_updates(gui):
-    # Only run in compiled PyInstaller mode
-    if not getattr(sys, "frozen", False):
-        print("Updater: Not running in compiled mode, skipping update check.")
-        return
-
     global _notified_sha, _pending_update
     if _update_in_progress:
         return
 
     # Clean up any leftover .old binaries from previous update now that old process is dead
     cleanup_old_executables()
+
+    force_test = bool(os.environ.get("TDM_FORCE_UPDATE") or "--test-update" in sys.argv)
 
     try:
         req = urllib.request.Request(API_URL, headers={"User-Agent": "TwitchDropsMiner-Updater"})
@@ -90,8 +87,8 @@ async def check_for_updates(gui):
                     remote_sha = raw_sha[:7].lower()
                 break
 
-        # If user previously declined this specific build during this session, skip
-        if remote_sha and remote_sha == _declined_sha:
+        # If user previously declined this specific build during this session, skip (unless force_test)
+        if not force_test and remote_sha and remote_sha == _declined_sha:
             return
 
         # Compare with local version (e.g. "16.dev.abcdef1")
@@ -104,11 +101,34 @@ async def check_for_updates(gui):
             if _is_hex_hash(candidate):
                 local_sha = candidate[:7].lower()
 
+        # In development / git environment, try detecting current commit if __version__ is unpatched
+        if local_sha is None and not getattr(sys, "frozen", False):
+            try:
+                git_proc = subprocess.run(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                    cwd=os.path.dirname(os.path.abspath(__file__)),
+                )
+                if git_proc.returncode == 0:
+                    cand = git_proc.stdout.strip().lower()
+                    if _is_hex_hash(cand):
+                        local_sha = cand[:7]
+            except Exception:
+                pass
+
         # If both are valid SHAs and match, already up to date
-        if remote_sha and local_sha and _is_hex_hash(remote_sha) and _is_hex_hash(local_sha):
-            if remote_sha == local_sha:
-                print("Updater: Already up to date (SHA matches).")
-                return
+        if (
+            not force_test
+            and remote_sha
+            and local_sha
+            and _is_hex_hash(remote_sha)
+            and _is_hex_hash(local_sha)
+            and remote_sha == local_sha
+        ):
+            print(f"Updater: Already up to date (SHA: {local_sha}).")
+            return
 
         if not assets:
             return
@@ -120,21 +140,26 @@ async def check_for_updates(gui):
 
         display_sha = remote_sha[:7] if (remote_sha and _is_hex_hash(remote_sha)) else "latest"
         _pending_update = {"sha": remote_sha or "latest", "assets": assets}
+        gui.pending_update = _pending_update
 
-        # Route update notification without stealing focus or interrupting full-screen apps
-        if gui.is_hidden:
-            gui.pending_update = _pending_update
-            # Notify quietly in system tray only once per new release
-            if _notified_sha != remote_sha:
-                _notified_sha = remote_sha
-                gui.tray.notify(
-                    f"A new build is available ({display_sha}). Restore window to update.",
-                    "Twitch Drops Miner",
-                    duration=10.0,
-                )
-        else:
-            # Window is visible: show the non-intrusive in-app banner
+        # If window is visible, display the non-intrusive in-app banner immediately
+        if not gui.is_hidden:
             gui.set_pending_update(remote_sha or "latest", assets)
+
+        # Deliver Windows / desktop notification (rate-limited to once per release unless force_test)
+        if force_test or _notified_sha != remote_sha:
+            _notified_sha = remote_sha
+            msg = f"A new build is available ({display_sha}). Check window to update."
+            try:
+                from translate import _
+                msg = _("gui", "tray", "update_available").format(sha=display_sha)
+            except Exception:
+                pass
+            gui.tray.notify(
+                msg,
+                "Twitch Drops Miner",
+                duration=10.0,
+            )
 
     except asyncio.CancelledError:
         pass
@@ -165,6 +190,16 @@ async def perform_update(gui, assets):
     if _update_in_progress:
         return
     _update_in_progress = True
+
+    if not getattr(sys, "frozen", False):
+        _update_in_progress = False
+        messagebox.showinfo(
+            "Twitch Drops Miner",
+            "Automatic updating is only available for compiled executables (.exe).\n"
+            "To update in development mode, please run 'git pull' or download the latest release from GitHub.",
+            parent=gui._root,
+        )
+        return
 
     system = platform.system().lower()
     machine = platform.machine().lower()

@@ -10,6 +10,9 @@ import logging
 import plistlib
 import threading
 import tkinter as tk
+import base64
+import subprocess
+import xml.sax.saxutils
 from pathlib import Path
 from contextlib import suppress
 from collections import abc
@@ -1268,6 +1271,36 @@ class ChannelList:
             self._table.delete(iid)
 
 
+def send_windows_toast(title: str, message: str) -> None:
+    """
+    Sends a native Windows Toast Notification using WinRT via PowerShell.
+    Non-intrusive, compatible with Windows 10 and Windows 11.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        esc_title = xml.sax.saxutils.escape(str(title), {'"': "&quot;", "'": "&apos;"})
+        esc_msg = xml.sax.saxutils.escape(str(message), {'"': "&quot;", "'": "&apos;"})
+        ps_script = f"""
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+$xml = [Windows.Data.Xml.Dom.XmlDocument]::new()
+$xml.LoadXml("<toast><visual><binding template='ToastGeneric'><text>{esc_title}</text><text>{esc_msg}</text></binding></visual></toast>")
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+$appId = '{{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}}\\WindowsPowerShell\\v1.0\\powershell.exe'
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
+"""
+        encoded_cmd = base64.b64encode(ps_script.encode("utf-16le")).decode("ascii")
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded_cmd],
+            capture_output=True,
+            timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+        )
+    except Exception:
+        pass
+
+
 class TrayIcon:
     TITLE = "Twitch Drops Miner"
 
@@ -1290,7 +1323,7 @@ class TrayIcon:
 
     def __del__(self) -> None:
         self.stop()
-        for icon_image in self._icon_images.values():
+        for icon_image in getattr(self, "_icon_images", {}).values():
             icon_image.close()
 
     def _shorten(self, text: str, by_len: int, min_len: int) -> str:
@@ -1391,17 +1424,26 @@ class TrayIcon:
         # do nothing if the user disabled notifications
         if not self._manager._twitch.settings.tray_notifications:
             return None
-        if self.icon is not None:
-            icon = self.icon  # nonlocal scope bind
 
-            async def notifier():
-                icon.notify(message, title)
-                await asyncio.sleep(duration)
+        async def notifier():
+            # On Windows, always trigger native Windows toast notification
+            if sys.platform == "win32":
+                display_title = title or self.TITLE
+                await asyncio.to_thread(send_windows_toast, display_title, message)
+
+            # If pystray icon is currently running and visible in system tray, also show tray balloon
+            if self.icon is not None and getattr(self.icon, "visible", False):
                 with suppress(Exception):
-                    icon.remove_notification()
+                    self.icon.notify(message, title)
+                    await asyncio.sleep(duration)
+                    self.icon.remove_notification()
+            elif sys.platform != "win32" and self.icon is not None:
+                with suppress(Exception):
+                    self.icon.notify(message, title)
+                    await asyncio.sleep(duration)
+                    self.icon.remove_notification()
 
-            return asyncio.create_task(notifier())
-        return None
+        return asyncio.create_task(notifier())
 
     def update_title(self, drop: TimedDrop | None):
         if self.icon is not None:

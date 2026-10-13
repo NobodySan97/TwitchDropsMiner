@@ -53,7 +53,8 @@
             "notification_title": "Premio Ottenuto",
             "minimize": "Minimizza nella barra delle applicazioni",
             "show": "Mostra",
-            "quit": "Esci"
+            "quit": "Esci",
+            "update_available": "Nuova versione disponibile ({sha}). Controlla l'applicazione per aggiornare."
         },
         "login": {
             "name": "Dettagli Login",
