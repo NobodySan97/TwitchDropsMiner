@@ -465,6 +465,10 @@ class Channel:
                     # if the stream goes OFFLINE, trying to get a list of chunks returns a 404/410
                     self.set_offline()
                     return False
+                elif chunks_response.status == 403:
+                    if self._stream is not None:
+                        self._stream._stream_url = None
+                    return False
                 elif chunks_response.status != 200:
                     return False
                 available_chunks: str = await chunks_response.text()
@@ -485,23 +489,28 @@ class Channel:
                 if "error" in available_json:
                     logger.error(f"Send watch error: \"{available_json['error']}\"")
                 return False
-            # the list contains ~15 chunks of the stream at ~2s intervals
-            chunks_list: list[URLType] = [
-                URLType(chunk)
-                for chunk in available_chunks.strip().split("\n")
-                if chunk.startswith("http")
-            ]
+            # the list contains chunks of the stream at ~2s intervals
+            chunks_list: list[URLType] = []
+            for chunk in available_chunks.strip().splitlines():
+                chunk = chunk.strip()
+                if not chunk or chunk.startswith('#'):
+                    continue
+                if chunk.startswith("http"):
+                    chunks_list.append(URLType(chunk))
+                else:
+                    chunks_list.append(URLType(str(URL(stream_url).join(URL(chunk)))))
             if not chunks_list:
                 return False
-            for stream_chunk_url in chunks_list:
-                # sending a HEAD request is enough to advance the drops,
-                # without downloading the actual stream data
+            # probe live-edge chunks (last 2-3 in playlist) with Connection: close
+            target_chunks = chunks_list[-3:] if len(chunks_list) >= 3 else chunks_list
+            success = False
+            for stream_chunk_url in target_chunks:
                 async with self._twitch.request(
                     "HEAD", stream_chunk_url, headers={"Connection": "close"}
                 ) as head_response:
-                    if head_response.status != 200:
-                        return False
-            return True
+                    if head_response.status == 200:
+                        success = True
+            return success
         except Exception as exc:
             logger.debug(f"Send watch error: {exc}")
             return False

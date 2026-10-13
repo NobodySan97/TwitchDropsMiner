@@ -315,7 +315,7 @@ class Websocket:
                 task = asyncio.create_task(topic(payload))
                 self._tasks.add(task)
                 task.add_done_callback(self._tasks.discard)
-        except (KeyError, json.JSONDecodeError) as exc:
+        except (KeyError, TypeError, json.JSONDecodeError) as exc:
             ws_logger.warning(f"Websocket[{self._idx}] failed to parse topic message: {exc}")
 
     async def _handle_recv(self):
@@ -373,7 +373,7 @@ class Websocket:
             message["nonce"] = create_nonce(CHARS_ASCII, 30)
         try:
             await ws.send_json(message, dumps=json_minify)
-        except (aiohttp.ClientConnectionError, ConnectionResetError, RuntimeError):
+        except (aiohttp.ClientError, ConnectionResetError, RuntimeError):
             raise WebsocketClosed(received=False)
         if "data" in message and isinstance(message["data"], dict) and "auth_token" in message["data"]:
             log_data = message["data"].copy()

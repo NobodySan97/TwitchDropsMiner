@@ -104,6 +104,8 @@ if __name__ == "__main__":
         import ctypes
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("devilxd.twitchdropsminer")
+            # Set process priority to BELOW_NORMAL to prevent frame drops in games
+            ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00004000)
         except Exception:
             pass
 
@@ -196,7 +198,7 @@ if __name__ == "__main__":
         client = Twitch(settings)
         import updater
         loop = asyncio.get_running_loop()
-        if sys.platform == "linux":
+        if sys.platform in ("linux", "darwin"):
             loop.add_signal_handler(signal.SIGINT, lambda *args: client.gui.close())
             loop.add_signal_handler(signal.SIGTERM, lambda *args: client.gui.close())
         update_task = loop.create_task(updater.run_update_loop(client.gui))
@@ -221,7 +223,7 @@ if __name__ == "__main__":
             )
             logger.error(crash_diag)
         finally:
-            if sys.platform == "linux":
+            if sys.platform in ("linux", "darwin"):
                 loop.remove_signal_handler(signal.SIGINT)
                 loop.remove_signal_handler(signal.SIGTERM)
             if not update_task.done():

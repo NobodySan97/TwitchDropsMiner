@@ -554,6 +554,7 @@ class Twitch:
         self._auth_state.clear()
         self.wanted_games.clear()
         self._mnt_triggers.clear()
+        self._claimed_drops.clear()
         # wait at least half a second + whatever it takes to complete the closing
         # this allows aiohttp to safely close the session
         await asyncio.sleep(start_time + 0.5 - time())
@@ -963,9 +964,17 @@ class Twitch:
                 continue
             # logger.log(CALL, f"Sending watch payload to: {channel.name}")
             last_sent: float = time()
-            succeeded: bool = await channel.send_watch()
+            try:
+                succeeded: bool = await channel.send_watch()
+            except Exception as exc:
+                logger.debug(f"Unhandled error in send_watch for {channel.name}: {exc}")
+                succeeded = False
             if not succeeded:
                 logger.log(CALL, f"Watch requested failed for channel: {channel.name}")
+                if not channel.online:
+                    self.stop_watching()
+                    self.change_state(State.CHANNEL_SWITCH)
+                    continue
             else:
                 if not self.gui.progress.timer_running:
                     if (
@@ -977,8 +986,11 @@ class Twitch:
             await self._watch_sleep(15 - min(time() - last_sent, 15))
             if self._watching_restart.is_set():
                 continue
-            if self.gui.progress.minute_almost_done():
-                await self.check_drop_progress(channel)
+            if succeeded and self.gui.progress.minute_almost_done():
+                try:
+                    await self.check_drop_progress(channel)
+                except Exception as exc:
+                    logger.debug(f"Error checking drop progress: {exc}")
             jitter = random.uniform(1.0, 3.0)
             sleep_duration = max(0.0, (interval + jitter) - (time() - last_sent))
             await self._watch_sleep(sleep_duration)
@@ -1002,7 +1014,7 @@ class Twitch:
                 if isinstance(user_data, dict)
                 else None
             )
-        except GQLException:
+        except RequestException:
             drop_data = None
         if drop_data is not None:
             gql_drop: TimedDrop | None = self._drops.get(drop_data["dropID"])
@@ -1804,8 +1816,12 @@ class Twitch:
         status_update(_("gui", "status", "fetching_inventory"))
         # fetch in-progress campaigns (inventory)
         response = await self.gql_request(GQL_QUERIES["Inventory"])
-        inventory: JsonType = response["data"]["currentUser"]["inventory"]
-        ongoing_campaigns: list[JsonType] = inventory["dropCampaignsInProgress"] or []
+        data = response.get("data") or {}
+        user_data = data.get("currentUser")
+        if not user_data or not isinstance(user_data, dict):
+            raise GQLException("Failed to fetch inventory: currentUser is missing")
+        inventory: JsonType = user_data.get("inventory") or {}
+        ongoing_campaigns: list[JsonType] = inventory.get("dropCampaignsInProgress") or []
         # this contains claimed benefit edge IDs, not drop IDs
         claimed_benefits: dict[str, list[datetime]] = defaultdict(list)
         for b in inventory.get("gameEventDrops") or []:

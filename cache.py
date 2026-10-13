@@ -97,7 +97,7 @@ class ImageCache:
         )
         avg_pixel = sum(pixel_data) / len(pixel_data)
         bits = ''.join('1' if px >= avg_pixel else '0' for px in pixel_data)
-        return ImageHash(f"{int(bits, 2):x}.png")
+        return ImageHash(f"{int(bits, 2):025x}.png")
 
     async def get(self, url: URLType, size: ImageSize | None = None) -> PhotoImage:
         if not url:
@@ -159,7 +159,9 @@ class ImageCache:
         try:
             session = await self._twitch.get_session()
             timeout = aiohttp.ClientTimeout(total=4.0)
-            async with session.get(url, timeout=timeout) as response:
+            proxy = self._twitch.settings.proxy
+            proxy_url = str(proxy) if proxy and proxy.host else None
+            async with session.get(url, timeout=timeout, proxy=proxy_url) as response:
                 if response.status == 200:
                     loaded = Image_module.open(io.BytesIO(await response.read()))
                     loaded.load()

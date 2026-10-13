@@ -70,8 +70,13 @@ async def check_for_updates(gui):
     try:
         req = urllib.request.Request(API_URL, headers={"User-Agent": "TwitchDropsMiner-Updater"})
         loop = asyncio.get_running_loop()
-        response = await loop.run_in_executor(None, urllib.request.urlopen, req)
-        data = json.loads(response.read().decode())
+
+        def _fetch_release() -> bytes:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return resp.read()
+
+        raw_payload = await loop.run_in_executor(None, _fetch_release)
+        data = json.loads(raw_payload.decode())
 
         assets = data.get("assets", [])
         body = data.get("body") or ""
@@ -234,14 +239,18 @@ async def perform_update(gui, assets):
 
         lbl.config(text="Extracting update...")
         await asyncio.sleep(0.05)
+        loop = asyncio.get_running_loop()
 
         # Extract archive and preserve POSIX permissions
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            for info in zip_ref.infolist():
-                extracted_path = zip_ref.extract(info, temp_dir)
-                mode = info.external_attr >> 16
-                if mode:
-                    os.chmod(extracted_path, mode)
+        def _extract_zip() -> None:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                for info in zip_ref.infolist():
+                    extracted_path = zip_ref.extract(info, temp_dir)
+                    mode = info.external_attr >> 16
+                    if mode:
+                        os.chmod(extracted_path, mode)
+
+        await loop.run_in_executor(None, _extract_zip)
 
         # Find executable
         new_exe = None

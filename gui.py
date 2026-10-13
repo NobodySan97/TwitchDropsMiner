@@ -1581,7 +1581,7 @@ class InventoryOverview:
         )
         if (
             campaign.required_minutes > 0  # don't show sub-only campaigns
-            and (not_linked or campaign.eligible)
+            and (not_linked or campaign.linked)
             and (campaign.active or upcoming and campaign.upcoming or expired and campaign.expired)
             and (excluded or not is_excluded)
             and (finished or not campaign.finished)
@@ -2033,14 +2033,15 @@ class SettingsPanel:
         ttk.Label(
             advanced_center, text=_("gui", "settings", "advanced", "mine_unlinked")
         ).grid(column=0, row=(irow := irow + 1), sticky="e")
+        def _update_mine_unlinked():
+            self._settings.mine_unlinked = bool(self._vars["mine_unlinked"].get())
+            self._manager.inv.refresh()
+            self._manager._twitch.change_state(State.GAMES_UPDATE)
+
         ttk.Checkbutton(
             advanced_center,
             variable=self._vars["mine_unlinked"],
-            command=lambda: setattr(
-                self._settings,
-                "mine_unlinked",
-                bool(self._vars["mine_unlinked"].get()),
-            ),
+            command=_update_mine_unlinked,
         ).grid(column=1, row=irow, sticky="w")
 
         # Priority section
