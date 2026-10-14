@@ -28,7 +28,6 @@ from exceptions import (
     ReloadRequest,
     LoginException,
     RequestInvalid,
-    CaptchaRequired,
     RequestException,
 )
 from utils import (
@@ -67,16 +66,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("TwitchDrops")
 gql_logger = logging.getLogger("TwitchDrops.gql")
-
-
-class SkipExtraJsonDecoder(json.JSONDecoder):
-    def decode(self, s: str, *args):
-        # skip whitespace check
-        obj, end = self.raw_decode(s)
-        return obj
-
-
-SAFE_LOADS = lambda s: json.loads(s, cls=SkipExtraJsonDecoder)
 
 
 class _AuthState:
@@ -212,145 +201,6 @@ class _AuthState:
                 # the device_code has expired, request a new code
                 continue
 
-    async def _login(self) -> str:
-        logger.info("Login flow started")
-        gui_print = self._twitch.gui.print
-        login_form: LoginForm = self._twitch.gui.login
-        client_info: ClientInfo = self._twitch._client_type
-
-        token_kind: str = ''
-        use_chrome: bool = False
-        payload: JsonType = {
-            # username and password are added later
-            # "username": str,
-            # "password": str,
-            # client ID to-be associated with the access token
-            "client_id": client_info.CLIENT_ID,
-            "undelete_user": False,  # purpose unknown
-            "remember_me": True,  # persist the session via the cookie
-            # "authy_token": str,  # 2FA token
-            # "twitchguard_code": str,  # email code
-            # "captcha": str,  # self-fed captcha
-            # 'force_twitchguard': False,  # force email code confirmation
-        }
-
-        while True:
-            login_data = await login_form.ask_login()
-            payload["username"] = login_data.username
-            payload["password"] = login_data.password
-            # reinstate the 2FA token, if present
-            payload.pop("authy_token", None)
-            payload.pop("twitchguard_code", None)
-            if login_data.token:
-                # if there's no token kind set yet, and the user has entered a token,
-                # we can immediately assume it's an authenticator token and not an email one
-                if not token_kind:
-                    token_kind = "authy"
-                if token_kind == "authy":
-                    payload["authy_token"] = login_data.token
-                elif token_kind == "email":
-                    payload["twitchguard_code"] = login_data.token
-
-            # use fancy headers to mimic the twitch android app
-            headers = {
-                "Accept": "application/vnd.twitchtv.v3+json",
-                "Accept-Encoding": "gzip",
-                "Accept-Language": "en-US",
-                "Client-Id": client_info.CLIENT_ID,
-                "Content-Type": "application/json; charset=UTF-8",
-                "Host": "passport.twitch.tv",
-                "User-Agent": client_info.USER_AGENT,
-                "X-Device-Id": self.device_id,
-                # "X-Device-Id": ''.join(random.choices('0123456789abcdef', k=32)),
-            }
-            async with self._twitch.request(
-                "POST", "https://passport.twitch.tv/login", headers=headers, json=payload
-            ) as response:
-                login_response: JsonType = await response.json(loads=SAFE_LOADS)
-
-            # Feed this back in to avoid running into CAPTCHA if possible
-            if "captcha_proof" in login_response:
-                payload["captcha"] = {"proof": login_response["captcha_proof"]}
-
-            # Error handling
-            if "error_code" in login_response:
-                error_code: int = login_response["error_code"]
-                logger.info(f"Login error code: {error_code}")
-                if error_code == 1000:
-                    logger.info("1000: CAPTCHA is required")
-                    use_chrome = True
-                    break
-                elif error_code in (2004, 3001):
-                    logger.info("3001: Login failed due to incorrect username or password")
-                    gui_print(_("login", "incorrect_login_pass"))
-                    if error_code == 2004:
-                        # invalid username
-                        login_form.clear(login=True)
-                    login_form.clear(password=True)
-                    continue
-                elif error_code in (
-                    3012,  # Invalid authy token
-                    3023,  # Invalid email code
-                ):
-                    logger.info("3012/23: Login failed due to incorrect 2FA code")
-                    if error_code == 3023:
-                        token_kind = "email"
-                        gui_print(_("login", "incorrect_email_code"))
-                    else:
-                        token_kind = "authy"
-                        gui_print(_("login", "incorrect_twofa_code"))
-                    login_form.clear(token=True)
-                    continue
-                elif error_code in (
-                    3011,  # Authy token needed
-                    3022,  # Email code needed
-                ):
-                    # 2FA handling
-                    logger.info("3011/22: 2FA token required")
-                    # user didn't provide a token, so ask them for it
-                    if error_code == 3022:
-                        token_kind = "email"
-                        gui_print(_("login", "email_code_required"))
-                    else:
-                        token_kind = "authy"
-                        gui_print(_("login", "twofa_code_required"))
-                    continue
-                elif error_code >= 5000:
-                    # Special errors, usually from Twitch telling the user to "go away"
-                    # We print the code out to inform the user, and just use chrome flow instead
-                    # {
-                    #     "error_code":5023,
-                    #     "error":"Please update your app to continue",
-                    #     "error_description":"client is not supported for this feature"
-                    # }
-                    # {
-                    #     "error_code":5027,
-                    #     "error":"Please update your app to continue",
-                    #     "error_description":"client blocked from this operation"
-                    # }
-                    gui_print(_("login", "error_code").format(error_code=error_code))
-                    logger.info(str(login_response))
-                    use_chrome = True
-                    break
-                else:
-                    ext_msg = str(login_response)
-                    logger.info(ext_msg)
-                    raise LoginException(ext_msg)
-            # Success handling
-            if "access_token" in login_response:
-                self.access_token = cast(str, login_response["access_token"])
-                logger.info("Access token granted")
-                login_form.clear()
-                break
-
-        if use_chrome:
-            # await self._chrome_login()
-            raise CaptchaRequired()
-
-        if hasattr(self, "access_token"):
-            return self.access_token
-        raise LoginException("Login flow finished without setting the access token")
-
     def headers(self, *, user_agent: str = '', gql: bool = False, authenticated: bool = True) -> JsonType:
         client_info: ClientInfo = self._twitch._client_type
         headers = {
@@ -390,13 +240,9 @@ class _AuthState:
             if "unique_id" in cookie:
                 self.device_id = cookie["unique_id"].value
             else:
-                async with self._twitch.request(
-                    "GET", client_info.CLIENT_URL, headers=self.headers()
-                ) as response:
-                    page_html = await response.text("utf8")
-                    assert page_html is not None
-                cookie = jar.filter_cookies(client_info.CLIENT_URL)
-                self.device_id = cookie["unique_id"].value if "unique_id" in cookie else create_nonce(CHARS_HEX_LOWER, 32)
+                self.device_id = create_nonce(CHARS_HEX_LOWER, 32)
+                cookie["unique_id"] = self.device_id
+                jar.update_cookies(cookie, client_info.CLIENT_URL)
         if not self._hasattrs("access_token", "user_id"):
             # looks like we're missing something
             login_form: LoginForm = self._twitch.gui.login
@@ -483,6 +329,8 @@ class Twitch:
         self._mnt_task: asyncio.Task[None] | None = None
         self._retry_task: asyncio.Task[None] | None = None
         self._last_gql_op: str = "None"
+        self._stalled_channels: dict[int, datetime] = {}
+        self._channel_last_progress: dict[int, float] = {}
 
     async def get_session(self) -> aiohttp.ClientSession:
         if (session := self._session) is not None:
@@ -555,6 +403,7 @@ class Twitch:
         self.wanted_games.clear()
         self._mnt_triggers.clear()
         self._claimed_drops.clear()
+        self._channel_last_progress.clear()
         # wait at least half a second + whatever it takes to complete the closing
         # this allows aiohttp to safely close the session
         await asyncio.sleep(start_time + 0.5 - time())
@@ -809,9 +658,13 @@ class Twitch:
                         *(self.get_live_streams(game, drops_enabled=True) for game in ordered_no_acl),
                         return_exceptions=True
                     )
+                    dir_channels: list[Channel] = []
                     for res in stream_results:
                         if isinstance(res, list):
+                            dir_channels.extend(res)
                             new_channels.update(res)
+                    if self.settings.available_drops_check and dir_channels:
+                        await self.bulk_check_available_drops(dir_channels)
                 # sort them descending by viewers, by priority and by game priority
                 # NOTE: Viewers sort also ensures ONLINE channels are sorted to the top
                 # NOTE: We can drop using the set now, because there's no more channels being added
@@ -953,9 +806,11 @@ class Twitch:
     @task_wrapper(critical=True)
     async def _watch_loop(self) -> NoReturn:
         interval: float = WATCH_INTERVAL.total_seconds()
+        watch_failures: int = 0
         while True:
             if self._watching_restart.is_set():
                 self._watching_restart.clear()
+                watch_failures = 0
             channel: Channel = await self.watching_channel.get()
             if not channel.online:
                 # if the channel isn't online anymore, we stop watching it
@@ -970,12 +825,19 @@ class Twitch:
                 logger.debug(f"Unhandled error in send_watch for {channel.name}: {exc}")
                 succeeded = False
             if not succeeded:
-                logger.log(CALL, f"Watch requested failed for channel: {channel.name}")
-                if not channel.online:
+                watch_failures += 1
+                logger.log(CALL, f"Watch requested failed for channel: {channel.name} (streak: {watch_failures})")
+                if not channel.online or watch_failures >= 3:
+                    if watch_failures >= 3:
+                        logger.warning(
+                            f"Watch failed {watch_failures} consecutive times on {channel.name}. Penalizing channel."
+                        )
+                        self.penalize_channel(channel)
                     self.stop_watching()
                     self.change_state(State.CHANNEL_SWITCH)
                     continue
             else:
+                watch_failures = 0
                 if not self.gui.progress.timer_running:
                     if (
                         (active_campaign := self.get_active_campaign(channel)) is not None
@@ -1001,7 +863,6 @@ class Twitch:
         if channel is None:
             return False
 
-        handled: bool = False
         try:
             context = await self.gql_request(
                 GQL_QUERIES["CurrentDrop"].with_variables(
@@ -1022,29 +883,26 @@ class Twitch:
                 new_minutes = drop_data["currentMinutesWatched"]
                 if new_minutes > gql_drop.real_current_minutes:
                     gql_drop.update_minutes(new_minutes)
+                    self._channel_last_progress[channel.id] = time()
+                    self._stalled_channels.pop(channel.id, None)
                     drop_text: str = (
                         f"{gql_drop.name} ({gql_drop.campaign.game}, "
                         f"{gql_drop.current_minutes}/{gql_drop.required_minutes})"
                     )
                     logger.log(CALL, f"Drop progress from GQL: {drop_text}")
                     return True
-                else:
-                    handled = True
 
-        if not handled:
-            if (active_campaign := self.get_active_campaign(channel)) is not None:
-                active_campaign.bump_minutes(channel)
-                drop_text = f"Unknown drop ({active_campaign.game})"
-                if (active_drop := active_campaign.first_drop) is not None:
-                    active_drop.display()
-                    drop_text = (
-                        f"{active_drop.name} ({active_drop.campaign.game}, "
-                        f"{active_drop.current_minutes}/{active_drop.required_minutes})"
-                    )
-                logger.log(CALL, f"Drop progress from active search: {drop_text}")
-                return True
-            else:
-                logger.log(CALL, "No active drop could be determined")
+        # Check if drop progress has stalled on this channel for more than 4 minutes (240s)
+        last_progress = self._channel_last_progress.setdefault(channel.id, time())
+        elapsed = time() - last_progress
+        if elapsed >= 240.0:
+            logger.warning(
+                f"Drop progress on channel {channel.name} has not advanced for {int(elapsed // 60)} minutes. Penalizing channel."
+            )
+            self._channel_last_progress.pop(channel.id, None)
+            self.penalize_channel(channel)
+            self.stop_watching()
+            self.change_state(State.CHANNEL_SWITCH)
         return False
 
     @task_wrapper(critical=True)
@@ -1079,6 +937,13 @@ class Twitch:
         logger.log(CALL, "Maintenance task requests a reload")
         self.change_state(State.INVENTORY_FETCH)
 
+    def penalize_channel(self, channel: Channel, duration: timedelta = timedelta(minutes=30)) -> None:
+        self._stalled_channels[channel.id] = datetime.now(timezone.utc) + duration
+        logger.info(
+            f"Channel {channel.name} penalized for {int(duration.total_seconds() / 60)} "
+            "minutes due to stalled drop progress"
+        )
+
     def can_watch(self, channel: Channel) -> bool:
         """
         Determines if the given channel qualifies as a watching candidate.
@@ -1086,6 +951,10 @@ class Twitch:
         # exit early if stream is offline
         if not channel.online:
             return False
+        if channel.id in self._stalled_channels:
+            if datetime.now(timezone.utc) < self._stalled_channels[channel.id]:
+                return False
+            del self._stalled_channels[channel.id]
         for campaign in self.inventory:
             if (
                 campaign.can_earn(channel)
@@ -1130,9 +999,13 @@ class Twitch:
             self.print(status_text)
             self.gui.status.update(status_text)
         if prev_channel is None or prev_channel != channel:
+            self._channel_last_progress[channel.id] = time()
             self.restart_watching()
 
     def stop_watching(self):
+        watching = self.watching_channel.get_with_default(None)
+        if watching is not None:
+            self._channel_last_progress.pop(watching.id, None)
         self.gui.clear_drop()
         self.watching_channel.clear()
         self.gui.channels.clear_watching()
@@ -1275,26 +1148,7 @@ class Twitch:
             campaign = drop.campaign
             await drop.claim()
             drop.display()
-            # About 4-20s after claiming the drop, next drop can be started
-            # by re-sending the watch payload. We can test for it by fetching the current drop
-            # via GQL, and then comparing drop IDs.
-            await asyncio.sleep(4)
-            if watching_channel is not None:
-                for attempt in range(8):
-                    context = await self.gql_request(
-                        GQL_QUERIES["CurrentDrop"].with_variables(
-                            {"channelID": str(watching_channel.id)}
-                        )
-                    )
-                    user_data = (context.get("data") or {}).get("currentUser")
-                    drop_data: JsonType | None = (
-                        user_data.get("dropCurrentSession")
-                        if isinstance(user_data, dict)
-                        else None
-                    )
-                    if drop_data is None or drop_data["dropID"] != drop.id:
-                        break
-                    await asyncio.sleep(2)
+            # Immediately restart watching or fetch inventory to start the next drop
             if campaign.can_earn(watching_channel):
                 self.restart_watching()
             else:
@@ -1313,6 +1167,9 @@ class Twitch:
         if drop is not None and drop.can_earn(self.watching_channel.get_with_default(None)):
             # the received payload is for the drop we expected
             drop.update_minutes(message["data"]["current_progress_min"])
+            if watching_channel is not None:
+                self._channel_last_progress[watching_channel.id] = time()
+                self._stalled_channels.pop(watching_channel.id, None)
 
     @task_wrapper
     async def process_notifications(self, user_id: int, message: JsonType):
@@ -1444,10 +1301,7 @@ class Twitch:
                         if "message" in error_dict:
                             if (
                                 single_retry
-                                and error_dict["message"] in (
-                                    "service error",
-                                    "PersistedQueryNotFound",
-                                )
+                                and error_dict["message"] == "service error"
                             ):
                                 op_name = (response_json.get("extensions") or {}).get("operationName", "unknown")
                                 logger.error(
@@ -2098,3 +1952,45 @@ class Twitch:
                 continue
             available_drops: list[JsonType] = acl_available_drops_map.get(channel_id, [])
             channel.external_update(channel_data, available_drops)
+
+    async def bulk_check_available_drops(self, channels: abc.Iterable[Channel]) -> None:
+        """
+        Check available drops for already-online channels (e.g. from game directory).
+        Updates stream.drops_enabled based on whether earnable drops exist.
+        """
+        if not self.settings.available_drops_check:
+            return
+        online_channels = [ch for ch in channels if ch.online and ch._stream is not None]
+        if not online_channels:
+            return
+        available_gql_ops: list[GQLOperation] = [
+            GQL_QUERIES["AvailableDrops"].with_variables({"channelID": str(ch.id)})
+            for ch in online_channels
+        ]
+        available_drops_map: dict[int, list[JsonType]] = {}
+        available_gql_tasks: list[asyncio.Task[list[JsonType]]] = [
+            asyncio.create_task(self.gql_request(available_gql_chunk))
+            for available_gql_chunk in chunk(available_gql_ops, 20)
+        ]
+        try:
+            for coro in asyncio.as_completed(available_gql_tasks):
+                response_list = await coro
+                if isinstance(response_list, dict):
+                    response_list = [response_list]
+                for response_json in response_list:
+                    data = response_json.get("data") if isinstance(response_json, dict) else None
+                    if data and isinstance(data, dict):
+                        available_info: JsonType | None = data.get("channel")
+                        if available_info is not None and isinstance(available_info, dict) and "id" in available_info:
+                            available_drops_map[int(available_info["id"])] = (
+                                available_info.get("viewerDropCampaigns") or []
+                            )
+        except Exception as exc:
+            for task in available_gql_tasks:
+                task.cancel()
+            logger.debug(f"Error checking available drops for directory channels: {exc}")
+            return
+        for ch in online_channels:
+            if ch._stream is not None and ch.id in available_drops_map:
+                camps = available_drops_map[ch.id]
+                ch._stream.drops_enabled = ch._check_drops_enabled(camps)

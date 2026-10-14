@@ -13,7 +13,7 @@ from translate import _
 from channel import Channel
 from utils import timestamp, Game
 from exceptions import GQLException
-from constants import GQL_QUERIES, MAX_EXTRA_MINUTES, URLType, State
+from constants import GQL_QUERIES, URLType
 
 if TYPE_CHECKING:
     from collections import abc
@@ -86,7 +86,7 @@ class BaseDrop:
             self.is_claimed = True
         elif not self.is_claimed and self.benefits:
             claimed_matches = []
-            cutoff = self.campaign.ends_at + timedelta(hours=24)
+            cutoff = self.ends_at + timedelta(hours=2)
             for benefit in self.benefits:
                 val = claimed_benefits.get(benefit.id)
                 if not val:
@@ -171,23 +171,15 @@ class BaseDrop:
     def update_claim(self, claim_id: str):
         self.claim_id = claim_id
 
-    async def generate_claim(self) -> None:
-        # claim IDs now appear to be constructed from other IDs we have access to
-        # Format: UserID#CampaignID#DropID
-        # NOTE: This marks a drop as a ready-to-claim, so we may want to later ensure
-        # its mining progress is finished first
-        auth_state = await self.campaign._twitch.get_auth()
-        self.claim_id = f"{auth_state.user_id}#{self.campaign.id}#{self.id}"
-
     def rewards_text(self, delim: str = ", ") -> str:
         return delim.join(benefit.name for benefit in self.benefits)
 
     async def claim(self) -> bool:
-        if self.claim_id is None:
-            await self.generate_claim()
+        if not self.claim_id:
+            return False
         result = await self._claim()
         if result:
-            self.is_claimed = result
+            self.is_claimed = True
             self._twitch._claimed_drops.add(self.id)
             if self.claim_id:
                 self._twitch._claimed_drops.add(self.claim_id)
@@ -204,6 +196,7 @@ class BaseDrop:
             self._twitch.gui.tray.notify(claim_text, _("gui", "tray", "notification_title"))
         else:
             logger.error(f"Drop claim has potentially failed! Drop ID: {self.id}")
+            self.claim_id = None
         return result
 
     async def _claim(self) -> bool:
@@ -250,7 +243,6 @@ class TimedDrop(BaseDrop):
             self_data.get("currentMinutesWatched", 0) if isinstance(self_data, dict) else 0
         )
         self.required_minutes: int = data.get("requiredMinutesWatched", 0)
-        self.extra_current_minutes: int = 0
         if self.is_claimed or self.claim_id:
             # claimed or claim-ready drops may report inconsistent current minutes, so we need to overwrite them
             self.real_current_minutes = self.required_minutes
@@ -272,16 +264,13 @@ class TimedDrop(BaseDrop):
     def can_claim(self) -> bool:
         return (
             not self.is_claimed
-            and (
-                bool(self.claim_id)
-                or (self.required_minutes > 0 and self.current_minutes >= self.required_minutes)
-            )
+            and bool(self.claim_id)
             and datetime.now(timezone.utc) < self.campaign.ends_at + timedelta(hours=24)
         )
 
     @property
     def current_minutes(self) -> int:
-        return self.real_current_minutes + self.extra_current_minutes
+        return self.real_current_minutes
 
     @property
     def remaining_minutes(self) -> int:
@@ -330,7 +319,6 @@ class TimedDrop(BaseDrop):
             and self.required_minutes > 0
             and self.current_minutes < self.required_minutes
             and not self.can_claim
-            and self.extra_current_minutes < MAX_EXTRA_MINUTES
         )
 
     def _on_state_changed(self) -> None:
@@ -338,22 +326,12 @@ class TimedDrop(BaseDrop):
 
     def _update_real_minutes(self, delta: int) -> None:
         self.real_current_minutes = max(0, min(self.required_minutes, self.real_current_minutes + delta))
-        self.extra_current_minutes = 0
         self._on_state_changed()
-
-    def _bump_minutes(self, channel: Channel | None) -> bool:
-        if self.can_earn(channel):
-            self.extra_current_minutes += 1
-            self._on_state_changed()
-            if self.extra_current_minutes >= MAX_EXTRA_MINUTES:
-                return True
-        return False
 
     async def claim(self) -> bool:
         result = await super().claim()
         if result:
             self.real_current_minutes = self.required_minutes
-            self.extra_current_minutes = 0
         self._on_state_changed()
         return result
 
@@ -537,18 +515,3 @@ class DropsCampaign:
             and self.starts_at < stamp
             and any(drop._can_earn_within(stamp) for drop in self.drops)
         )
-
-    def bump_minutes(self, channel: Channel) -> None:
-        # NOTE: Use a temporary list to ensure all drops are bumped before checking
-        if any([drop._bump_minutes(channel) for drop in self.drops]):
-            # Executes if any drop's extra_current_minutes reach MAX_ESTIMATED_MINUTES
-            # TODO: Figure out a better way to handle this case
-            logger.warning(
-                f"At least one of the drops in campaign \"{self.name}({self.game.name})\" "
-                "has reached the maximum extra minutes limit!"
-            )
-            for drop in self.drops:
-                drop.extra_current_minutes = 0
-            self._twitch.change_state(State.CHANNEL_SWITCH)
-        if (first_drop := self.first_drop) is not None:
-            first_drop.display()

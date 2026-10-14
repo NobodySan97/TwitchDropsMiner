@@ -119,11 +119,10 @@ SETTINGS_PATH = Path(WORKING_DIR, "settings.json")
 # Typing
 JsonType = Dict[str, Any]
 URLType = NewType("URLType", str)
-GQLOperation: TypeAlias = "GQLQuery | GQLPersistedQuery"
+GQLOperation: TypeAlias = "GQLPersistedQuery"
 TopicProcess: TypeAlias = "abc.Callable[[int, JsonType], Any]"
 # Values
 MAX_INT = sys.maxsize
-MAX_EXTRA_MINUTES = 15
 BASE_TOPICS = 2
 MAX_WEBSOCKETS = 8
 WS_TOPICS_LIMIT = 50
@@ -221,84 +220,6 @@ class ClientInfo:
 
 
 class ClientType:
-    WEB = ClientInfo(
-        URL("https://www.twitch.tv"),
-        "kimne78kx3ncx6brgo4mv6wki5h1ko",
-        (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
-        ),
-    )
-    MOBILE_WEB = ClientInfo(
-        URL("https://m.twitch.tv"),
-        "r8s4dac0uhzifbpu9sjdiwzctle17ff",
-        [
-            # Chrome versioning is done fully on android only,
-            # other platforms only use the major version
-            (
-                "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-            (
-                "Mozilla/5.0 (Linux; Android 16; SM-A205U) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-            (
-                "Mozilla/5.0 (Linux; Android 16; SM-A102U) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-            (
-                "Mozilla/5.0 (Linux; Android 16; SM-G960U) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-            (
-                "Mozilla/5.0 (Linux; Android 16; SM-N960U) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-            (
-                "Mozilla/5.0 (Linux; Android 16; LM-Q720) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-            (
-                "Mozilla/5.0 (Linux; Android 16; LM-X420) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/153.0.7204.158 Mobile Safari/537.36"
-            ),
-        ]
-    )
-    ANDROID_APP = ClientInfo(
-        URL("https://www.twitch.tv"),
-        "kd1unb4b3q4t58fwlpcbzcbnm76a8fp",
-        [
-            (
-                "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-            (
-                "Dalvik/2.1.0 (Linux; U; Android 16; SM-S938B Build/BP2A.250605.031) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-            (
-                "Dalvik/2.1.0 (Linux; Android 16; SM-X716N Build/UP1A.231005.007) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-            (
-                "Dalvik/2.1.0 (Linux; U; Android 15; SM-G990B Build/AP3A.240905.015.A2) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-            (
-                "Dalvik/2.1.0 (Linux; U; Android 15; SM-G970F Build/AP3A.241105.008) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-            (
-                "Dalvik/2.1.0 (Linux; U; Android 15; SM-A566E Build/AP3A.240905.015.A2) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-            (
-                "Dalvik/2.1.0 (Linux; U; Android 14; SM-X306B Build/UP1A.231005.007) "
-                "tv.twitch.android.app/25.3.0/2503006"
-            ),
-        ]
-    )
     SMARTBOX = ClientInfo(
         URL("https://android.tv.twitch.tv"),
         "ue6666qo983tsx6so1t0vnawi233wa",
@@ -325,20 +246,6 @@ class PriorityMode(Enum):
     ENDING_SOONEST = 1
     LOW_AVBL_FIRST = 2
     SHORTEST_TIME_FIRST = 3
-
-
-class GQLQuery(JsonType):
-    def __init__(self, query: str, g64data: str):
-        super().__init__(
-            query=query,
-            variables={
-                "input": {
-                    "data": g64data,
-                    "repository": "twilight",
-                    "encoding": "GZIP_B64",
-                }
-            }
-        )
 
 
 class GQLPersistedQuery(JsonType):
@@ -374,17 +281,6 @@ GQL_QUERIES: dict[str, GQLPersistedQuery] = {
             "channel": ...,  # channel login
         },
     ),
-    # can be used to claim channel points
-    "ClaimCommunityPoints": GQLPersistedQuery(
-        "ClaimCommunityPoints",
-        "46aaeebe02c99afdf4fc97c7c0cba964124bf6b0af229395f1f6d1feed05b3d0",
-        variables={
-            "input": {
-                "claimID": ...,  # points claim_id
-                "channelID": ...,  # channel ID as a str
-            },
-        },
-    ),
     # can be used to claim a drop
     "ClaimDrop": GQLPersistedQuery(
         "DropsPage_ClaimDropRewards",
@@ -393,14 +289,6 @@ GQL_QUERIES: dict[str, GQLPersistedQuery] = {
             "input": {
                 "dropInstanceID": ...,  # drop claim_id
             },
-        },
-    ),
-    # returns current state of points (balance, claim available) for a particular channel
-    "ChannelPointsContext": GQLPersistedQuery(
-        "ChannelPointsContext",
-        "374314de591e69925fce3ddc2bcf085796f56ebb8cad67a0daa3165c03adc345",
-        variables={
-            "channelLogin": ...,  # channel login
         },
     ),
     # returns all in-progress campaigns
@@ -491,31 +379,6 @@ GQL_QUERIES: dict[str, GQLPersistedQuery] = {
             },
         },
     ),
-    "SlugRedirect": GQLPersistedQuery(  # can be used to turn game name -> game slug
-        "DirectoryGameRedirect",
-        "1f0300090caceec51f33c5e20647aceff9017f740f223c3c532ba6fa59f6b6cc",
-        variables={
-            "name": ...,  # game name
-        },
-    ),
-    "NotificationsView": GQLPersistedQuery(  # unused, triggers notifications "update-summary"
-        "OnsiteNotifications_View",
-        "e8e06193f8df73d04a1260df318585d1bd7a7bb447afa058e52095513f2bfa4f",
-        variables={
-            "input": {},
-        },
-    ),
-    "NotificationsList": GQLPersistedQuery(  # unused
-        "OnsiteNotifications_ListNotifications",
-        "11cdb54a2706c2c0b2969769907675680f02a6e77d8afe79a749180ad16bfea6",
-        variables={
-            "cursor": "",
-            "displayType": "VIEWER",
-            "language": "en",
-            "limit": 10,
-            "shouldLoadLastBroadcast": False,
-        },
-    ),
     "NotificationsDelete": GQLPersistedQuery(
         "OnsiteNotifications_DeleteNotification",
         "13d463c831f28ffe17dccf55b3148ed8b3edbbd0ebadd56352f1ff0160616816",
@@ -567,15 +430,11 @@ class WebsocketTopic:
 
 WEBSOCKET_TOPICS: dict[str, dict[str, str]] = {
     "User": {  # Using user_id
-        "Presence": "presence",  # unused
         "Drops": "user-drop-events",
         "Notifications": "onsite-notifications",
-        "CommunityPoints": "community-points-user-v1",
     },
     "Channel": {  # Using channel_id
-        "Drops": "channel-drop-events",  # unused
         "StreamState": "video-playback-by-id",
         "StreamUpdate": "broadcast-settings-update",
-        "CommunityPoints": "community-points-channel-v1",  # unused
     },
 }

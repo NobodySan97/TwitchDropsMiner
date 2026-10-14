@@ -13,7 +13,7 @@ __pycache__
 /env
 /cache
 /*.jar
-log.txt
+log.txt*
 /dump.dat
 /lock.file
 settings.json

@@ -57,6 +57,7 @@ class Websocket:
         # main task, responsible for receiving messages, sending them, and websocket ping
         self._handle_task: asyncio.Task[None] | None = None
         self._tasks: set[asyncio.Task[Any]] = set()
+        self._stop_tasks: set[asyncio.Task[Any]] = set()
         # topics stuff
         self.topics: dict[str, WebsocketTopic] = {}
         self._submitted: set[WebsocketTopic] = set()
@@ -100,12 +101,13 @@ class Websocket:
             if ws is not None:
                 self.set_status(_("gui", "websocket", "disconnecting"))
                 await ws.close()
-            for task in list(self._tasks):
-                if not task.done():
-                    task.cancel()
-            if self._tasks:
+            cur_task = asyncio.current_task()
+            tasks_to_cancel = [t for t in self._tasks if t is not cur_task and not t.done()]
+            for task in tasks_to_cancel:
+                task.cancel()
+            if tasks_to_cancel:
                 with suppress(asyncio.CancelledError):
-                    await asyncio.gather(*self._tasks, return_exceptions=True)
+                    await asyncio.wait(tasks_to_cancel, timeout=2.0)
             self._tasks.clear()
             if self._handle_task is not None:
                 with suppress(asyncio.TimeoutError, asyncio.CancelledError):
@@ -124,8 +126,8 @@ class Websocket:
         # weird syntax but that's what we get for using a decorator for this
         # return type of 'task_wrapper' is a coro, so we need to instance it for the task
         task = asyncio.create_task(task_wrapper(self.stop)(remove=remove))
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        self._stop_tasks.add(task)
+        task.add_done_callback(self._stop_tasks.discard)
 
     async def _backoff_connect(
         self, ws_url: str, **kwargs
@@ -137,6 +139,7 @@ class Websocket:
         else:
             proxy = None
         for delay in backoff:
+            await self._twitch.wait_until_login()
             try:
                 connect_time = time()
                 async with session.ws_connect(ws_url, proxy=proxy) as websocket:
@@ -338,7 +341,7 @@ class Websocket:
                 if message.get("error"):
                     ws_logger.warning(f"Websocket[{self._idx}] PubSub error: {message['error']}")
                     if message["error"] in ("ERR_BADAUTH", "ERR_INVALID_AUTH"):
-                        self._twitch._auth_state.invalidate()
+                        self._twitch._auth_state.invalidate(delete_cookies=True)
                         self.request_reconnect()
             elif msg_type == "RECONNECT":
                 # We've received a reconnect request

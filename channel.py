@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-import re
-import gzip
-import json
 import asyncio
 import logging
-from base64 import b64encode
+from collections import OrderedDict
 from typing import Any, SupportsInt, cast, TYPE_CHECKING
 
 import aiohttp
 from yarl import URL
 
-from utils import Game, json_minify, isonow
-from exceptions import MinerException, RequestException
-from constants import CALL, GQL_QUERIES, ONLINE_DELAY, URLType, GQLQuery
+from utils import Game
+from exceptions import MinerException
+from constants import CALL, GQL_QUERIES, ONLINE_DELAY, URLType
 
 if TYPE_CHECKING:
     from twitch import Twitch
@@ -41,51 +38,6 @@ class Stream:
         self.game: Game | None = Game(game) if game else None
         self.title: str = title
         self._stream_url: URLType | None = None
-
-    @property
-    def _watch_payload(self) -> list[JsonType]:
-        auth_state = self.channel._twitch._auth_state
-        return [
-            {
-                "event": "minute-watched",
-                "properties": {
-                    "broadcast_id": str(self.broadcast_id),
-                    "channel_id": str(self.channel.id),
-                    "channel": self.channel._login,
-                    "client_time": isonow(),
-                    "device_id": auth_state.device_id,
-                    "game": self.game.name if self.game is not None else "",
-                    "game_id": str(self.game.id) if self.game is not None else "",
-                    "hidden": False,
-                    "is_live": True,
-                    "live": True,
-                    "logged_in": True,
-                    "minutes_logged": 1,
-                    "muted": False,
-                    "platform": "android_tv",
-                    "player": "android_tv",
-                    "user_id": str(auth_state.user_id),
-                }
-            }
-        ]
-
-    @property
-    def spade_payload(self) -> JsonType:
-        return {
-            "data": (b64encode(json_minify(self._watch_payload).encode("utf8"))).decode("utf8")
-        }
-
-    @property
-    def gql_payload(self) -> GQLQuery:
-        return GQLQuery(
-            (
-                "\n mutation SendEvents($input: SendSpadeEventsInput!) "
-                "{\n sendSpadeEvents(input: $input) {\n statusCode\n}\n}\n"
-            ),
-            b64encode(
-                gzip.compress(json_minify(self._watch_payload).encode("utf8"))
-            ).decode("utf8")
-        )
 
     @classmethod
     def from_get_stream(cls, channel: Channel, channel_data: JsonType) -> Stream:
@@ -144,43 +96,31 @@ class Stream:
         try:
             async with self.channel._twitch.request("GET", usher_url) as qualities_response:
                 if qualities_response.status != 200:
-                    self.channel.set_offline()
+                    if qualities_response.status in (404, 410):
+                        self.channel.set_offline()
                     return None
                 available_qualities = await qualities_response.text()
-            # try to decode the suspected JSON
-            try:
-                available_json: JsonType = json.loads(available_qualities)
-            except json.JSONDecodeError:
-                # No JSON: this is the expected path. Do nothing and continue with the below.
-                pass
-            else:
-                # JSON was decoded - if there's an error, log it and report failure
-                if isinstance(available_json, list):
-                    available_json = available_json[0]
-                if "error" in available_json:
-                    logger.error(f"Stream URL get error: \"{available_json['error']}\"")
-                    self.channel.set_offline()
-                return None
-            lines = [line.strip() for line in available_qualities.strip().split("\n") if line.strip()]
-            if not lines or not lines[-1].startswith("http"):
-                self.channel.set_offline()
+            stream_urls = [
+                line.strip()
+                for line in available_qualities.strip().splitlines()
+                if line.strip().startswith("http")
+            ]
+            if not stream_urls:
                 return None
             # pick the last URL from the list, usually with the lowest quality stream
-            self._stream_url = cast(URLType, URL(lines[-1]))
+            self._stream_url = cast(URLType, URL(stream_urls[-1]))
         except (aiohttp.InvalidURL, ValueError):
-            self.channel.set_offline()
             return None
         except Exception as exc:
             logger.debug(f"Stream URL get error: {exc}")
-            self.channel.set_offline()
             return None
         return self._stream_url
 
 
 class Channel:
     __slots__ = (
-        "_twitch", "_gui_channels", "id", "_login", "_display_name", "_spade_url",
-        "_stream", "_pending_stream_up", "acl_based"
+        "_twitch", "_gui_channels", "id", "_login", "_display_name",
+        "_stream", "_pending_stream_up", "_watched_chunks", "acl_based"
     )
 
     def __init__(
@@ -197,9 +137,9 @@ class Channel:
         self.id: int = int(id)
         self._login: str = login
         self._display_name: str | None = display_name
-        self._spade_url: URLType | None = None
         self._stream: Stream | None = None
         self._pending_stream_up: asyncio.Task[Any] | None = None
+        self._watched_chunks: OrderedDict[str, None] = OrderedDict()
         # ACL-based channels are:
         # • considered first when switching channels
         # • if we're watching a non-based channel, a based channel going up triggers a switch
@@ -318,12 +258,6 @@ class Channel:
             self._pending_stream_up = None
         self._gui_channels.remove(self)
 
-    async def get_spade_url(self) -> URLType:
-        """
-        Returns Twitch's universal Spade tracking endpoint directly,
-        avoiding unnecessary HTML scraping and network delays.
-        """
-        return URLType("https://spade.twitch.tv/track")
 
     def _check_drops_enabled(self, available_drops: list[JsonType]) -> bool:
         return any(
@@ -436,17 +370,18 @@ class Channel:
         if self.online:
             old_stream = self._stream
             self._stream = None
+            if self._watched_chunks:
+                self._watched_chunks.clear()
             self._twitch.on_channel_update(self, old_stream, self._stream)
             needs_display = False  # calling on_channel_update always does a display at the end
         if needs_display:
             self.display()
 
-    # async def _send_watch_playlist(self) -> bool:
     async def send_watch(self) -> bool:
         """
-        This performs a HEAD request on the stream's current playlist,
+        This performs HEAD requests on the stream's current playlist segments,
         to simulate watching the stream.
-        Optimally, send every ~20 seconds to advance drops.
+        Optimally, send every ~10-20 seconds to advance drops.
         """
         if self._stream is None:
             return False
@@ -455,12 +390,8 @@ class Channel:
         if stream_url is None:
             return False
         # fetch a list of chunks available to download for the stream
-        # NOTE: the CDN is configured to forcibly disconnect shortly after serving the list,
-        # if we don't do it yourselves. Lets help it by actually doing it ourselves instead.
         try:
-            async with self._twitch.request(
-                "GET", stream_url, headers={"Connection": "close"}
-            ) as chunks_response:
+            async with self._twitch.request("GET", stream_url) as chunks_response:
                 if chunks_response.status in (404, 410):
                     # if the stream goes OFFLINE, trying to get a list of chunks returns a 404/410
                     self.set_offline()
@@ -472,24 +403,8 @@ class Channel:
                 elif chunks_response.status != 200:
                     return False
                 available_chunks: str = await chunks_response.text()
-            # the response may contain some invalid JSON with duplicate double quotes
-            # in the value strings: we need to get rid of them by removing the "url" key entirely
-            # if no JSON can be found within the response, this is a NOOP
-            available_chunks = re.sub(r'"url": ?".+}",', '', available_chunks)
-            # try to decode the suspected JSON
-            try:
-                available_json: JsonType = json.loads(available_chunks)
-            except json.JSONDecodeError:
-                # No JSON: this is the expected path. Do nothing and continue with the below.
-                pass
-            else:
-                # JSON was decoded - if there's an error, log it and report failure
-                if isinstance(available_json, list):
-                    available_json = available_json[0]
-                if "error" in available_json:
-                    logger.error(f"Send watch error: \"{available_json['error']}\"")
-                return False
-            # the list contains chunks of the stream at ~2s intervals
+
+            # the playlist contains chunks of the stream at ~1-2s intervals
             chunks_list: list[URLType] = []
             for chunk in available_chunks.strip().splitlines():
                 chunk = chunk.strip()
@@ -501,30 +416,22 @@ class Channel:
                     chunks_list.append(URLType(str(URL(stream_url).join(URL(chunk)))))
             if not chunks_list:
                 return False
-            # probe live-edge chunks (last 2-3 in playlist) with Connection: close
-            target_chunks = chunks_list[-3:] if len(chunks_list) >= 3 else chunks_list
+
+            # Determine new segments that haven't been requested yet
+            new_chunks = [c for c in chunks_list if str(c) not in self._watched_chunks]
+            # On first poll or if the playlist was refreshed, probe recent chunks.
+            # Otherwise probe all new segments.
+            target_chunks = new_chunks if new_chunks else chunks_list[-3:]
             success = False
             for stream_chunk_url in target_chunks:
-                async with self._twitch.request(
-                    "HEAD", stream_chunk_url, headers={"Connection": "close"}
-                ) as head_response:
+                async with self._twitch.request("HEAD", stream_chunk_url) as head_response:
                     if head_response.status == 200:
                         success = True
+                        self._watched_chunks[str(stream_chunk_url)] = None
+                        if len(self._watched_chunks) > 256:
+                            self._watched_chunks.popitem(last=False)
+
             return success
         except Exception as exc:
             logger.debug(f"Send watch error: {exc}")
-            return False
-
-    # NOTE: This is currently unused (kept for reference).
-    async def _send_watch_spade(self) -> bool:
-        if self._stream is None:
-            return False
-        if self._spade_url is None:
-            self._spade_url = await self.get_spade_url()
-        try:
-            async with self._twitch.request(
-                "POST", self._spade_url, data=self._stream.spade_payload
-            ) as response:
-                return response.status == 204
-        except RequestException:
             return False

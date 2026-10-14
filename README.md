@@ -12,6 +12,15 @@
   </a>
 </p>
 
+> [!TIP]
+> ### 🟢 Operational Status: Verified Working (14 October 2026)
+> All core mining components and Twitch integrations are fully verified and operational as of **October 14, 2026**:
+> - 🔑 **Authentication & Login**: Web login, OAuth device pairing, and cookie session persistence tested and working seamlessly.
+> - ⚡ **Stream-less HLS Mining**: HLS segment HEAD requests actively granting drop minutes on Twitch CloudFront CDN without video decoding or browser overhead.
+> - 📊 **Real-time Progress & Drop Claims**: Live minute synchronization via Twitch GQL and WebSocket PubSub with reliable automated claiming.
+> - ⏱️ **Intelligent Stall Watchdog**: Robust 4-minute time-based stall detection that prevents false channel penalization while ensuring seamless channel switching if a streamer stalls or goes offline.
+> - 🧹 **Clean & Resilient Engine**: All obsolete legacy Spade code, non-functional fallbacks, and dead endpoints have been completely audited and streamlined.
+
 > [!NOTE]
 > **This repository is an enhanced fork of [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner)**.  
 > All core architecture, design, and original credit belongs to **[DevilXD](https://github.com/DevilXD)**.  
@@ -28,6 +37,7 @@
 >   - **Resilient HLS HEAD Mining**: Exception-safe network loops, connection-close headers, rate-limiting jitter, and instant offline (404/410) stream detection.
 >   - **Reliable Drop Claiming**: Accurate claim eligibility checks preventing false claims on unearned drops.
 >   - **Session Re-authentication**: Automatic 401 token invalidation and refresh for uninterrupted 24/7 farming.
+>   - **Intelligent Stall Watchdog**: Time-based (4 min) stall detection preventing premature channel bans while auto-recovering when streamers mute drops.
 >   - **GUI Memory & Concurrency Protections**: Fixed timer race conditions, listener leaks, theme resets, and bounded console buffers.
 >   - **Automatic Disk Logging**: Automatic real-time saving to `log.txt` with 10MB auto-rotation.
 

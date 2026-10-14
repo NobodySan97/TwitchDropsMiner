@@ -78,14 +78,6 @@ class LoginException(RequestException):
             super().__init__("Unknown error during login")
 
 
-class CaptchaRequired(LoginException):
-    """
-    The most dreaded thing about automated scripts...
-    """
-    def __init__(self):
-        super().__init__("Captcha is required")
-
-
 class GQLException(RequestException):
     """
     Raised when a GQL request returns an error response.
