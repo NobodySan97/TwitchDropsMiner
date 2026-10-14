@@ -1571,11 +1571,14 @@ class Twitch:
         return self._merge_data(campaign_ids, fetched_data)
 
     def _normalize_discovered_campaign(self, c: JsonType, fallback_game: JsonType | None = None) -> JsonType | None:
+        summary = c.get("summary") or {}
+        if summary.get("isRewardCampaign") or summary.get("includesSubRequirement"):
+            return None
         now = datetime.now(timezone.utc)
         game = c.get("game")
-        if not game and fallback_game:
-            game = dict(fallback_game)
-        elif isinstance(game, dict):
+        if not game:
+            return None
+        if isinstance(game, dict):
             game = dict(game)
             if fallback_game and isinstance(fallback_game, dict):
                 if not game.get("boxArtURL") and fallback_game.get("boxArtURL"):
@@ -1789,19 +1792,22 @@ class Twitch:
                         if not isinstance(dres, dict):
                             continue
                         channel_data = dres.get("data", {}).get("channel") or {}
-                        cid_channel = str(channel_data.get("id", ""))
                         camps = channel_data.get("viewerDropCampaigns") or []
                         for c in camps:
                             if c and "id" in c and c["id"]:
                                 cid = c["id"]
                                 if cid not in discovered:
+                                    summary = c.get("summary") or {}
+                                    if summary.get("isRewardCampaign") or summary.get("includesSubRequirement"):
+                                        continue
                                     c_game = c.get("game") or {}
+                                    if not c_game or not c_game.get("name"):
+                                        continue
                                     c_gid = str(c_game.get("id", ""))
                                     c_name = str(c_game.get("name", "")).lower()
                                     fallback_game = (
                                         games_by_id.get(c_gid)
                                         or games_by_name.get(c_name)
-                                        or streamer_game_map.get(cid_channel)
                                     )
                                     norm = self._normalize_discovered_campaign(c, fallback_game=fallback_game)
                                     if norm and norm.get("game"):

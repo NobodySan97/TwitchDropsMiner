@@ -1623,6 +1623,7 @@ class InventoryOverview:
         )
         if (
             campaign.required_minutes > 0  # don't show sub-only campaigns
+            and (self._settings.enable_badges_emotes or not campaign.has_badge_or_emote)
             and (not_linked or campaign.linked)
             and (campaign.active or upcoming and campaign.upcoming or expired and campaign.expired)
             and (excluded or not is_excluded)
