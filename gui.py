@@ -18,7 +18,6 @@ from contextlib import suppress
 from collections import abc
 from textwrap import dedent
 from math import log10, ceil
-from dataclasses import dataclass
 from tkinter.font import Font, nametofont
 from functools import partial, cached_property
 from datetime import datetime, timedelta, timezone
