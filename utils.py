@@ -15,11 +15,10 @@ import tkinter as tk
 from enum import Enum
 from pathlib import Path
 from functools import wraps
-from contextlib import suppress
 from functools import cached_property
 from copy import deepcopy
 from datetime import datetime, timezone
-from collections import abc, OrderedDict
+from collections import abc
 from typing import Any, Literal, Callable, Generic, Mapping, TypeVar, ParamSpec, cast
 
 from yarl import URL
@@ -49,17 +48,6 @@ def set_root_icon(root: tk.Tk, image_path: Path | str) -> None:
             root.iconbitmap(default=str(image_path))
         except Exception:
             pass
-
-
-async def first_to_complete(coros: abc.Iterable[abc.Coroutine[Any, Any, _T]]) -> _T:
-    # In Python 3.11, we need to explicitly wrap awaitables
-    tasks = [asyncio.ensure_future(coro) for coro in coros]
-    done: set[asyncio.Task[Any]]
-    pending: set[asyncio.Task[Any]]
-    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    for task in pending:
-        task.cancel()
-    return await next(iter(done))
 
 
 def chunk(to_chunk: abc.Iterable[_T], chunk_length: int) -> abc.Generator[list[_T], None, None]:
@@ -129,15 +117,10 @@ def isonow() -> str:
 
 CHARS_ASCII = string.ascii_letters + string.digits
 CHARS_HEX_LOWER = string.digits + "abcdef"
-CHARS_HEX_UPPER = string.digits + "ABCDEF"
 
 
 def create_nonce(chars: str, length: int) -> str:
     return ''.join(random.choices(chars, k=length))
-
-
-def deduplicate(iterable: abc.Iterable[_T]) -> list[_T]:
-    return list(OrderedDict.fromkeys(iterable).keys())
 
 
 def task_wrapper(
@@ -171,15 +154,6 @@ def task_wrapper(
     if afunc is None:
         return decorator
     return decorator(afunc)
-
-
-def invalidate_cache(instance, *attrnames):
-    """
-    To be used to invalidate `functools.cached_property`.
-    """
-    for name in attrnames:
-        with suppress(AttributeError):
-            delattr(instance, name)
 
 
 def _serialize(obj: Any) -> Any:

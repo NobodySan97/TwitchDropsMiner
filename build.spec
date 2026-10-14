@@ -13,7 +13,7 @@ SELF_PATH = str(Path(".").resolve())
 if SELF_PATH not in sys.path:
     sys.path.insert(0, SELF_PATH)
 
-from constants import WORKING_DIR, SITE_PACKAGES_PATH, DEFAULT_LANG
+from constants import WORKING_DIR, DEFAULT_LANG
 
 if TYPE_CHECKING:
     from PyInstaller.building.splash import Splash
@@ -42,9 +42,6 @@ to_add: list[tuple[Path, str, bool]] = [
     (Path("icons/idle.ico"), "./icons", True),
     (Path("icons/error.ico"), "./icons", True),
     (Path("icons/maint.ico"), "./icons", True),
-    # SeleniumWire HTTPS/SSL cert file and key
-    (Path(SITE_PACKAGES_PATH, "seleniumwire/ca.crt"), "./seleniumwire", False),
-    (Path(SITE_PACKAGES_PATH, "seleniumwire/ca.key"), "./seleniumwire", False),
 ]
 for lang_filepath in WORKING_DIR.joinpath("lang").glob("*.json"):
     if lang_filepath.stem != DEFAULT_LANG:
