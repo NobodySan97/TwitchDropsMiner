@@ -103,8 +103,6 @@ if __name__ == "__main__":
         import ctypes
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("devilxd.twitchdropsminer")
-            # Set process priority to BELOW_NORMAL to prevent frame drops in games
-            ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00004000)
         except Exception:
             pass
 

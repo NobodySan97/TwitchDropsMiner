@@ -37,11 +37,11 @@ app_name: str = "Twitch Drops Miner (by DevilXD)"
 # (source_path, dest_path, required)
 to_add: list[tuple[Path, str, bool]] = [
     # icon files
-    (Path("icons/pickaxe.ico"), "./icons", True),
-    (Path("icons/active.ico"), "./icons", True),
-    (Path("icons/idle.ico"), "./icons", True),
-    (Path("icons/error.ico"), "./icons", True),
-    (Path("icons/maint.ico"), "./icons", True),
+    (Path("icons/pickaxe.ico"), "icons", True),
+    (Path("icons/active.ico"), "icons", True),
+    (Path("icons/idle.ico"), "icons", True),
+    (Path("icons/error.ico"), "icons", True),
+    (Path("icons/maint.ico"), "icons", True),
 ]
 for lang_filepath in WORKING_DIR.joinpath("lang").glob("*.json"):
     if lang_filepath.stem != DEFAULT_LANG:
@@ -59,10 +59,6 @@ hooksconfig: dict[str, Any] = {}
 binaries: list[tuple[Path, str]] = []
 hiddenimports: list[str] = [
     "PIL._tkinter_finder",
-    "setuptools._distutils.log",
-    "setuptools._distutils.dir_util",
-    "setuptools._distutils.file_util",
-    "setuptools._distutils.archive_util",
 ]
 
 if sys.platform == "linux":
@@ -118,6 +114,102 @@ else:
     exe_args = (a.datas, a.binaries)
     collect_args = tuple()
 
+version_info = None
+win_manifest = None
+
+if sys.platform == "win32":
+    import re
+    from version import __version__
+    from PyInstaller.utils.win32.versioninfo import (
+        VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
+    )
+
+    _version_digits = [int(d) for d in re.findall(r"\d+", __version__)]
+    while len(_version_digits) < 4:
+        _version_digits.append(0)
+    _file_version = tuple(_version_digits[:4])
+
+    version_info = VSVersionInfo(
+        ffi=FixedFileInfo(
+            filevers=_file_version,
+            prodvers=_file_version,
+            mask=0x3F,
+            flags=0x0,
+            OS=0x40004,
+            fileType=0x1,
+            subtype=0x0,
+            date=(0, 0),
+        ),
+        kids=[
+            StringFileInfo([
+                StringTable(
+                    "040904B0",
+                    [
+                        StringStruct("CompanyName", "DevilXD"),
+                        StringStruct("FileDescription", "Twitch Drops Miner"),
+                        StringStruct("FileVersion", str(__version__)),
+                        StringStruct("InternalName", "Twitch Drops Miner"),
+                        StringStruct("LegalCopyright", "Copyright (C) DevilXD"),
+                        StringStruct("OriginalFilename", "Twitch Drops Miner (by DevilXD).exe"),
+                        StringStruct("ProductName", "Twitch Drops Miner"),
+                        StringStruct("ProductVersion", str(__version__)),
+                    ],
+                )
+            ]),
+            VarFileInfo([VarStruct("Translation", [0x0409, 1200])]),
+        ],
+    )
+
+    win_manifest = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity
+      version="16.0.0.0"
+      processorArchitecture="*"
+      name="DevilXD.TwitchDropsMiner"
+      type="win32"
+  />
+  <description>Twitch Drops Miner</description>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 and Windows 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+      <!-- Windows 8.1 -->
+      <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+      <!-- Windows 8 -->
+      <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>
+      <!-- Windows 7 -->
+      <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
+    </application>
+  </compatibility>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2,PerMonitor</dpiAwareness>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </windowsSettings>
+  </application>
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+          type="win32"
+          name="Microsoft.Windows.Common-Controls"
+          version="6.0.0.0"
+          processorArchitecture="*"
+          publicKeyToken="6595b64144ccf1df"
+          language="*"
+      />
+    </dependentAssembly>
+  </dependency>
+</assembly>
+"""
+
 pyz = PYZ(a.pure)
 try:
     exe = EXE(
@@ -131,6 +223,10 @@ try:
         optimize=optimize,
         exclude_binaries=one_dir,
         icon="icons/pickaxe.ico",
+        version=version_info,
+        manifest=win_manifest,
+        uac_admin=False,
+        uac_uiaccess=False,
     )
 except PermissionError as exc:
     exc_text: str = format_exc()
