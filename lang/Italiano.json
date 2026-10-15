@@ -55,7 +55,14 @@
             "minimize": "Minimizza nella barra delle applicazioni",
             "show": "Mostra",
             "quit": "Esci",
-            "update_available": "Nuova versione disponibile ({sha}). Controlla l'applicazione per aggiornare."
+            "update_available": "Nuova versione disponibile ({sha}). Controlla l'applicazione per aggiornare.",
+            "update_menu": "Aggiornamento disponibile...",
+            "update_title": "Aggiornamento disponibile",
+            "link_required_title": "Collegamento account richiesto",
+            "banner_available": "Nuova versione disponibile ({sha}).",
+            "banner_update": "Aggiorna ora",
+            "banner_later": "Più tardi",
+            "banner_ignore": "Ignora"
         },
         "login": {
             "name": "Dettagli Login",
@@ -141,7 +148,8 @@
                 "tray_notifications": "Notifiche: ",
                 "dark_mode": "Modalità scura: ",
                 "proxy": "Proxy (richiede il riavvio):",
-                "priority_mode": "Modalità priorità: "
+                "priority_mode": "Modalità priorità: ",
+                "language": "Lingua 🌐 (richiede riavvio): "
             },
             "game_name": "Nome del gioco",
             "priority": "Priorità",
@@ -164,6 +172,17 @@
             }
         },
         "help": {
+            "about": {
+                "name": "Informazioni",
+                "created_by": "Applicazione creata da: ",
+                "fork": "Fork & Aggiornamenti automatici: ",
+                "repo_fork": "Repository (Fork): ",
+                "repo_upstream": "Upstream originale: ",
+                "donate": "Dona a DevilXD: ",
+                "donate_text": "Se apprezzi l'applicazione e ti è utile, valuta la possibilità di effettuare una piccola donazione a DevilXD. Grazie!",
+                "releases": "Versioni e Aggiornamenti (GitHub)",
+                "report_issue": "Segnala un problema (GitHub)"
+            },
             "links": {
                 "name": "Link utili",
                 "inventory": "Vedi l'inventario di Twitch",

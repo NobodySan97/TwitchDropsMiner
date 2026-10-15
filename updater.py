@@ -150,14 +150,16 @@ async def check_for_updates(gui):
         if force_test or _notified_sha != remote_sha:
             _notified_sha = remote_sha
             msg = f"A new build is available ({display_sha}). Check window to update."
+            title = "Update Available"
             try:
                 from translate import _
                 msg = _("gui", "tray", "update_available").format(sha=display_sha)
+                title = _("gui", "tray", "update_title")
             except Exception:
                 pass
             gui.tray.notify(
                 msg,
-                "Twitch Drops Miner",
+                title,
                 duration=10.0,
             )
 
@@ -228,9 +230,12 @@ async def perform_update(gui, assets):
     import tkinter as tk
     from tkinter import ttk
     import aiohttp
+    from utils import resource_path, set_root_icon
+    from translate import _
 
     prog_win = tk.Toplevel(gui._root)
-    prog_win.title("Downloading Update")
+    set_root_icon(prog_win, resource_path("icons/pickaxe.ico"))
+    prog_win.title(_("gui", "tray", "update_title"))
     prog_win.geometry("320x130")
     prog_win.resizable(False, False)
     rx = gui._root.winfo_x()

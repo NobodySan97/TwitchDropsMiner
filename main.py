@@ -102,7 +102,7 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         import ctypes
         try:
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("devilxd.twitchdropsminer")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Twitch Drops Miner")
         except Exception:
             pass
 

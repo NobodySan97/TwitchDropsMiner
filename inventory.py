@@ -206,7 +206,7 @@ class BaseDrop:
             self._twitch.print(f"⚠️ {fail_text}")
             self._twitch.gui.tray.notify(
                 f"{drop_desc}\n{link_url}",
-                _("gui", "tray", "notification_title"),
+                _("gui", "tray", "link_required_title"),
             )
             logger.warning(
                 f"Drop claim for {self.id} ({drop_desc}) requires account linking: {link_url}"

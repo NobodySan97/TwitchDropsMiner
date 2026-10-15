@@ -72,6 +72,13 @@ class GUITray(TypedDict):
     show: str
     quit: str
     update_available: NotRequired[str]
+    update_menu: NotRequired[str]
+    update_title: NotRequired[str]
+    link_required_title: NotRequired[str]
+    banner_available: NotRequired[str]
+    banner_update: NotRequired[str]
+    banner_later: NotRequired[str]
+    banner_ignore: NotRequired[str]
 
 
 class GUILoginForm(TypedDict):
@@ -169,6 +176,7 @@ class GUISettingsGeneral(TypedDict):
     dark_mode: str
     priority_mode: str
     proxy: str
+    language: NotRequired[str]
 
 
 class GUISettingsAdvanced(TypedDict):
@@ -198,6 +206,18 @@ class GUISettings(TypedDict):
     reload_text: str
 
 
+class GUIHelpAbout(TypedDict):
+    name: NotRequired[str]
+    created_by: NotRequired[str]
+    fork: NotRequired[str]
+    repo_fork: NotRequired[str]
+    repo_upstream: NotRequired[str]
+    donate: NotRequired[str]
+    donate_text: NotRequired[str]
+    releases: NotRequired[str]
+    report_issue: NotRequired[str]
+
+
 class GUIHelpLinks(TypedDict):
     name: str
     inventory: str
@@ -210,6 +230,7 @@ class GUIHelpInvalidate(TypedDict):
 
 
 class GUIHelp(TypedDict):
+    about: NotRequired[GUIHelpAbout]
     links: GUIHelpLinks
     how_it_works: str
     how_it_works_text: str
@@ -306,6 +327,13 @@ default_translation: Translation = {
             "show": "Show",
             "quit": "Quit",
             "update_available": "A new build is available ({sha}). Check window to update.",
+            "update_menu": "Update Available...",
+            "update_title": "Update Available",
+            "link_required_title": "Account Link Required",
+            "banner_available": "A new update is available ({sha}).",
+            "banner_update": "Update Now",
+            "banner_later": "Later",
+            "banner_ignore": "Ignore",
         },
         "login": {
             "name": "Login Form",
@@ -392,6 +420,7 @@ default_translation: Translation = {
                 "dark_mode": "Dark mode: ",
                 "priority_mode": "Priority mode: ",
                 "proxy": "Proxy (requires restart):",
+                "language": "Language 🌐 (requires restart): ",
             },
             "advanced": {
                 "name": "Advanced",
@@ -418,6 +447,20 @@ default_translation: Translation = {
             "reload_text": "Most changes require a reload to take an immediate effect: ",
         },
         "help": {
+            "about": {
+                "name": "About",
+                "created_by": "Application created by: ",
+                "fork": "Fork & Auto-Updater: ",
+                "repo_fork": "Repository (Fork): ",
+                "repo_upstream": "Original Upstream: ",
+                "donate": "Donate (DevilXD): ",
+                "donate_text": (
+                    "If you like the application and found it useful, "
+                    "please consider donating a small amount of money to support DevilXD. Thank you!"
+                ),
+                "releases": "Releases & Updates (GitHub)",
+                "report_issue": "Report an Issue (GitHub)",
+            },
             "links": {
                 "name": "Useful Links",
                 "inventory": "See Twitch inventory",

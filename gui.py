@@ -1283,7 +1283,7 @@ class TrayIcon:
 
         menu = pystray.Menu(
             pystray.MenuItem(
-                "Update Available...",
+                _("gui", "tray", "update_menu"),
                 bridge(self._on_tray_update_clicked),
                 visible=lambda item: self._manager.pending_update is not None,
             ),
@@ -1292,7 +1292,7 @@ class TrayIcon:
             pystray.MenuItem(_("gui", "tray", "quit"), bridge(self.quit)),
         )
         self.icon = pystray.Icon(
-            "twitch_miner", self._icon_images[self._icon_state], self.get_title(drop), menu
+            "Twitch Drops Miner", self._icon_images[self._icon_state], self.get_title(drop), menu
         )
         # self.icon.run_detached()
         loop.run_in_executor(None, self.icon.run)
@@ -1374,21 +1374,22 @@ class UpdateBanner(ttk.Frame):
         self._btn_frame = ttk.Frame(self, style="UpdateBanner.TFrame")
         self._btn_frame.pack(side="right", padx=4)
 
-        self._btn_update = ttk.Button(self._btn_frame, text="Update Now")
+        self._btn_update = ttk.Button(self._btn_frame, text=_("gui", "tray", "banner_update"))
         self._btn_update.pack(side="left", padx=3)
 
-        self._btn_later = ttk.Button(self._btn_frame, text="Later")
+        self._btn_later = ttk.Button(self._btn_frame, text=_("gui", "tray", "banner_later"))
         self._btn_later.pack(side="left", padx=3)
 
-        self._btn_ignore = ttk.Button(self._btn_frame, text="Ignore")
+        self._btn_ignore = ttk.Button(self._btn_frame, text=_("gui", "tray", "banner_ignore"))
         self._btn_ignore.pack(side="left", padx=3)
 
     def show(self, sha: str, on_update, on_later, on_ignore):
         display_sha = sha[:7] if len(sha) >= 7 else "latest"
-        self._lbl.config(text=f"🚀 A new update is available ({display_sha}).")
-        self._btn_update.config(command=on_update)
-        self._btn_later.config(command=on_later)
-        self._btn_ignore.config(command=on_ignore)
+        banner_msg = _("gui", "tray", "banner_available").format(sha=display_sha)
+        self._lbl.config(text=f"🚀 {banner_msg}")
+        self._btn_update.config(text=_("gui", "tray", "banner_update"), command=on_update)
+        self._btn_later.config(text=_("gui", "tray", "banner_later"), command=on_later)
+        self._btn_ignore.config(text=_("gui", "tray", "banner_ignore"), command=on_ignore)
         self.grid(column=0, row=0, sticky="ew", pady=(0, 4))
 
     def hide(self):
@@ -1863,10 +1864,11 @@ class SettingsPanel:
         general_center = ttk.Frame(general_frame)
         general_center.grid(column=0, row=0)
 
-        # language frame
         language_frame = ttk.Frame(general_center)
         language_frame.grid(column=0, row=0)
-        ttk.Label(language_frame, text="Language 🌐 (requires restart): ").grid(column=0, row=0)
+        ttk.Label(
+            language_frame, text=_("gui", "settings", "general", "language")
+        ).grid(column=0, row=0)
         SelectCombobox(
             language_frame,
             values=list(_.languages),
@@ -2372,32 +2374,38 @@ class HelpTab:
         bottom_frame.grid(column=0, row=1, sticky="nsew")
         irow = 0
         # About
-        about = ttk.LabelFrame(center_frame, padding=(4, 0, 4, 4), text="About")
+        about = ttk.LabelFrame(
+            center_frame, padding=(4, 0, 4, 4), text=_("gui", "help", "about", "name")
+        )
         about.grid(column=0, row=(irow := irow + 1), sticky="nsew", padx=2)
         about.columnconfigure(2, weight=1)
         # About - created by
         ttk.Label(
-            about, text="Application created by: ", anchor="e"
+            about, text=_("gui", "help", "about", "created_by"), anchor="e"
         ).grid(column=0, row=0, sticky="nsew")
         LinkLabel(
             about, link="https://github.com/DevilXD", text="DevilXD"
         ).grid(column=1, row=0, sticky="nsew")
         # About - fork & auto-updater
         ttk.Label(
-            about, text="Fork & Auto-Updater: ", anchor="e"
+            about, text=_("gui", "help", "about", "fork"), anchor="e"
         ).grid(column=0, row=1, sticky="nsew")
         LinkLabel(
             about, link="https://github.com/NobodySan97", text="NobodySan97"
         ).grid(column=1, row=1, sticky="nsew")
         # About - fork repo link
-        ttk.Label(about, text="Repository (Fork): ", anchor="e").grid(column=0, row=2, sticky="nsew")
+        ttk.Label(
+            about, text=_("gui", "help", "about", "repo_fork"), anchor="e"
+        ).grid(column=0, row=2, sticky="nsew")
         LinkLabel(
             about,
             link="https://github.com/NobodySan97/TwitchDropsMiner",
             text="https://github.com/NobodySan97/TwitchDropsMiner",
         ).grid(column=1, row=2, sticky="nsew")
         # About - original upstream link
-        ttk.Label(about, text="Original Upstream: ", anchor="e").grid(column=0, row=3, sticky="nsew")
+        ttk.Label(
+            about, text=_("gui", "help", "about", "repo_upstream"), anchor="e"
+        ).grid(column=0, row=3, sticky="nsew")
         LinkLabel(
             about,
             link="https://github.com/DevilXD/TwitchDropsMiner",
@@ -2407,14 +2415,13 @@ class HelpTab:
         ttk.Separator(
             about, orient="horizontal"
         ).grid(column=0, row=4, columnspan=3, sticky="nsew")
-        ttk.Label(about, text="Donate (DevilXD): ", anchor="e").grid(column=0, row=5, sticky="nsew")
+        ttk.Label(
+            about, text=_("gui", "help", "about", "donate"), anchor="e"
+        ).grid(column=0, row=5, sticky="nsew")
         LinkLabel(
             about,
             link="https://www.buymeacoffee.com/DevilXD",
-            text=(
-                "If you like the application and found it useful, "
-                "please consider donating a small amount of money to support DevilXD. Thank you!"
-            ),
+            text=_("gui", "help", "about", "donate_text"),
             wraplength=self.WIDTH,
         ).grid(column=1, row=5, sticky="nsew")
         # Useful links
@@ -2435,12 +2442,12 @@ class HelpTab:
         LinkLabel(
             links,
             link="https://github.com/NobodySan97/TwitchDropsMiner/releases",
-            text="Releases & Updates (GitHub)",
+            text=_("gui", "help", "about", "releases"),
         ).grid(column=0, row=2, sticky="nsew")
         LinkLabel(
             links,
             link="https://github.com/NobodySan97/TwitchDropsMiner/issues",
-            text="Report an Issue (GitHub)",
+            text=_("gui", "help", "about", "report_issue"),
         ).grid(column=0, row=3, sticky="nsew")
         # How It Works
         howitworks = ttk.LabelFrame(
