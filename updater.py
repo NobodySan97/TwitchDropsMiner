@@ -50,46 +50,31 @@ def apply_windows_update(
     stage_dir: str | os.PathLike | None = None,
 ) -> None:
     """
-    Hand off to a detached batch script that waits for this process to exit,
-    replaces the executable in place without leaving .old files, cleans staging,
-    and relaunches the app.
+    Windows in-place executable replacement.
+    Renames the current running executable to a .old timestamped file (allowed by NTFS),
+    copies new_exe in place, cleans staging, launches new_exe, and terminates this process.
+    Leftover .old files are cleaned on next startup by cleanup_old_executables().
     """
-    from pathlib import Path
+    current_exe_str = str(current_exe)
+    new_exe_str = str(new_exe)
+    old_exe = current_exe_str + f".old.{int(time.time())}"
 
-    new_exe_p = Path(new_exe).resolve()
-    current_exe_p = Path(current_exe).resolve()
-    script = Path(tempfile.gettempdir()) / f"tdm-update-{os.getpid()}.bat"
+    # Rename current running executable (NTFS allows renaming open files)
+    os.rename(current_exe_str, old_exe)
+    try:
+        shutil.copy2(new_exe_str, current_exe_str)
+    except Exception as copy_err:
+        if os.path.exists(old_exe) and not os.path.exists(current_exe_str):
+            os.rename(old_exe, current_exe_str)
+        raise copy_err
 
-    stage_cleanup = ""
-    if stage_dir and Path(stage_dir).exists():
-        stage_cleanup = f'rmdir /s /q "{Path(stage_dir).resolve()}" >nul 2>nul'
+    if stage_dir and os.path.exists(stage_dir):
+        shutil.rmtree(stage_dir, ignore_errors=True)
 
-    lines = [
-        "@echo off",
-        "chcp 65001 >nul",
-        "set n=0",
-        ":retry",
-        "ping -n 2 127.0.0.1 >nul",
-        f'move /y "{new_exe_p}" "{current_exe_p}" >nul 2>nul',
-        "set /a n+=1",
-        f'if exist "{new_exe_p}" if %n% lss 90 goto retry',
-    ]
-    if stage_cleanup:
-        lines.append(stage_cleanup)
-    lines.append(f'start "" "{current_exe_p}"' + "".join(f' "{a}"' for a in args))
-    lines.append('del "%~f0"')
-
-    script.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
     flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    if hasattr(subprocess, "CREATE_NO_WINDOW"):
-        flags |= subprocess.CREATE_NO_WINDOW
-    subprocess.Popen(
-        ["cmd", "/c", str(script)],
-        creationflags=flags,
-        close_fds=True,
-        env=clean_env(),
-    )
+    subprocess.Popen([current_exe_str] + list(args), env=clean_env(), creationflags=flags)
     os._exit(0)
+
 
 
 def apply_linux_update(
@@ -159,121 +144,18 @@ _pending_update: dict | None = None
 _declined_sha: str | None = None
 _notified_sha: str | None = None
 _update_in_progress: bool = False
-_staged_update: dict | None = None
-
-
 def is_update_staged(sha: str | None = None) -> bool:
-    if not _staged_update or not _staged_update.get("ready"):
-        return False
-    if sha and _staged_update.get("sha") != sha:
-        return False
-    new_exe = _staged_update.get("new_exe")
-    return bool(new_exe and os.path.exists(new_exe))
+    return False
 
 
 def get_staged_update() -> dict | None:
-    if is_update_staged():
-        return _staged_update
     return None
 
 
 def decline_update(sha: str):
-    global _declined_sha, _pending_update, _staged_update
+    global _declined_sha, _pending_update
     _declined_sha = sha
     _pending_update = None
-    if _staged_update and _staged_update.get("stage_dir"):
-        shutil.rmtree(_staged_update["stage_dir"], ignore_errors=True)
-    _staged_update = None
-
-
-async def stage_update_background(assets: list[dict], remote_sha: str, gui) -> None:
-    """
-    Downloads and stages the update archive in the background so the user
-    can apply it instantaneously without waiting.
-    """
-    global _staged_update
-    if not getattr(sys, "frozen", False):
-        return
-
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system == "windows":
-        asset_name = "Twitch.Drops.Miner.Windows.zip"
-    elif system == "darwin":
-        return
-    else:
-        arch = "aarch64" if ("aarch64" in machine or "arm64" in machine) else "x86_64"
-        asset_name = f"Twitch.Drops.Miner.Linux.PyInstaller-{arch}.zip"
-
-    download_url = None
-    for a in assets:
-        if a.get("name") == asset_name:
-            download_url = a.get("browser_download_url")
-            break
-
-    if not download_url:
-        return
-
-    stage_dir = tempfile.mkdtemp(prefix=f"tdm_stage_{remote_sha[:7]}_")
-    zip_path = os.path.join(stage_dir, "update.zip")
-
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(download_url) as resp:
-                if resp.status != 200:
-                    raise RuntimeError(f"HTTP {resp.status}")
-                with open(zip_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(65536):
-                        f.write(chunk)
-
-        # Extract archive
-        loop = asyncio.get_running_loop()
-        def _extract():
-            with zipfile.ZipFile(zip_path, "r") as zr:
-                for info in zr.infolist():
-                    extracted = zr.extract(info, stage_dir)
-                    mode = info.external_attr >> 16
-                    if mode:
-                        os.chmod(extracted, mode)
-
-        await loop.run_in_executor(None, _extract)
-
-        # Find new exe
-        new_exe = None
-        for root, _, files in os.walk(stage_dir):
-            for file in files:
-                p = os.path.join(root, file)
-                if system == "windows" and file.lower().endswith(".exe"):
-                    new_exe = p
-                    break
-                elif system == "linux" and not file.endswith((".txt", ".json", ".zip", ".md", ".png", ".ico")):
-                    if "AppImage" not in file:
-                        new_exe = p
-                        os.chmod(new_exe, 0o755)
-                        break
-            if new_exe:
-                break
-
-        if new_exe:
-            _staged_update = {
-                "sha": remote_sha,
-                "new_exe": new_exe,
-                "stage_dir": stage_dir,
-                "ready": True,
-            }
-            print(f"Updater: Update ({remote_sha[:7]}) successfully pre-downloaded in background.")
-            if gui and hasattr(gui, "set_update_ready"):
-                gui.set_update_ready(remote_sha)
-        else:
-            shutil.rmtree(stage_dir, ignore_errors=True)
-
-    except asyncio.CancelledError:
-        shutil.rmtree(stage_dir, ignore_errors=True)
-    except Exception as e:
-        print(f"Updater: Background pre-download failed (will download on demand): {e}")
-        shutil.rmtree(stage_dir, ignore_errors=True)
 
 
 async def check_for_updates(gui):
@@ -368,10 +250,6 @@ async def check_for_updates(gui):
         if not gui.is_hidden:
             gui.set_pending_update(remote_sha or "latest", assets)
 
-        # Launch background pre-download for compiled executable (instant restart when user clicks)
-        if getattr(sys, "frozen", False) and not is_update_staged(remote_sha):
-            loop = asyncio.get_running_loop()
-            loop.create_task(stage_update_background(assets, remote_sha or "latest", gui))
 
         # Deliver Windows / desktop notification (rate-limited to once per release unless force_test)
         if force_test or _notified_sha != remote_sha:
@@ -432,18 +310,7 @@ async def perform_update(gui, assets):
     machine = platform.machine().lower()
     current_exe = sys.executable
 
-    # 1. Fast path: if already staged in background, apply immediately (zero download wait!)
-    staged = get_staged_update()
-    if staged and staged.get("ready") and os.path.exists(staged.get("new_exe")):
-        new_exe = staged["new_exe"]
-        stage_dir = staged.get("stage_dir")
-        print(f"Updater: Applying pre-downloaded update ({staged.get('sha')[:7]})...")
-        if system == "windows":
-            apply_windows_update(new_exe, current_exe, sys.argv[1:], stage_dir=stage_dir)
-            return
-        elif system == "linux":
-            apply_linux_update(new_exe, current_exe, sys.argv[1:], stage_dir=stage_dir)
-            return
+
 
     if system == "windows":
         asset_name = "Twitch.Drops.Miner.Windows.zip"
