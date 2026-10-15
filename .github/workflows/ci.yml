@@ -217,22 +217,17 @@ jobs:
           python3 -m pip install wheel
           python3 -m pip install -r requirements.txt
 
-      - name: Install PyInstaller
+      - name: Install PyInstaller and build tools
         run: |
-          python3 -m pip install pyinstaller
+          python3 -m pip install pyinstaller meson ninja
 
-      # NOTE: Remove this step if/once libxft gets updated to 2.3.5 or newer on Ubuntu 22.04, which currently has 2.3.4.
+      # NOTE: Build a recent version of libXft from official GitLab repo to avoid broken static archive mirrors
       - name: Build a recent version of libXft
         run: |
           mkdir -p /tmp/libXft
-          cd /tmp/libXft
-          curl -fL https://xorg.freedesktop.org/releases/individual/lib/libXft-2.3.9.tar.xz -o libXft.tar.xz
-          sha256sum libXft.tar.xz
-          tar xvf libXft.tar.xz
-          cd libXft-*
-          ./configure --prefix=/tmp/libXft --sysconfdir=/etc --disable-static
-          make
-          make install-strip
+          git clone --depth 1 --branch libXft-2.3.9 https://gitlab.freedesktop.org/xorg/lib/libxft.git /tmp/libXft-src
+          meson setup /tmp/libXft-src /tmp/libXft-build --prefix=/tmp/libXft --libdir=lib -Ddefault_library=shared
+          ninja -C /tmp/libXft-build install
 
       - name: Create portable executable
         run: |
@@ -292,7 +287,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y xvfb libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1
+          sudo apt install -y xvfb build-essential pkg-config libxft-dev libfontconfig1-dev libfreetype6-dev libxrender-dev libx11-dev libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1
 
       - name: Install appimage-builder
         run: |
