@@ -275,7 +275,7 @@ GQL_QUERIES: dict[str, GQLPersistedQuery] = {
     # can be used to claim a drop
     "ClaimDrop": GQLPersistedQuery(
         "DropsPage_ClaimDropRewards",
-        "a455deea71bdc9015b78eb49f4acfbce8baa7ccbedd28e549bb025bd0f751930",
+        "3b8a08f5a35dc95d7de229dea731a106a9aa9fa2e84c8f693fd159943f273e4f",
         variables={
             "input": {
                 "dropInstanceID": ...,  # drop claim_id

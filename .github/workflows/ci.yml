@@ -10,6 +10,7 @@ on:
 env:
   PYTHON_VERSION: "3.10"
   USE_UPX: false
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   validate:
@@ -98,6 +99,10 @@ jobs:
         run: |
           pyinstaller build.spec --noconfirm
 
+      - name: Verify executable runs
+        run: |
+          .\dist\"Twitch Drops Miner (by DevilXD).exe" --version
+
       - name: Create release folder
         run: |
           $FolderName = 'Twitch Drops Miner'
@@ -150,6 +155,10 @@ jobs:
         run: |
           pyinstaller build.spec --noconfirm
 
+      - name: Verify executable runs
+        run: |
+          ./dist/"Twitch Drops Miner (by DevilXD).app/Contents/MacOS/Twitch Drops Miner (by DevilXD)" --version
+
       - name: Create release folder and Zip
         run: |
           FOLDER="Twitch Drops Miner"
@@ -201,7 +210,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential pkg-config libxft-dev libfontconfig1-dev libfreetype6-dev libxrender-dev libx11-dev libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1 python3-tk
+          sudo apt install -y xvfb build-essential pkg-config libxft-dev libfontconfig1-dev libfreetype6-dev libxrender-dev libx11-dev libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1 python3-tk
 
       - name: Install project dependencies
         run: |
@@ -232,6 +241,11 @@ jobs:
       - name: Show PyInstaller warnings
         run: |
           cat build/build/warn-build.txt || true
+
+      - name: Verify executable runs
+        run: |
+          chmod +x dist/*
+          LD_LIBRARY_PATH=/tmp/libXft/lib xvfb-run --auto-servernum ./dist/"Twitch Drops Miner (by DevilXD)" --version
 
       - name: Create release folder
         run: |
@@ -278,7 +292,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1
+          sudo apt install -y xvfb libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1
 
       - name: Install appimage-builder
         run: |
@@ -296,6 +310,11 @@ jobs:
           PYTHON_VERSION: ${{env.PYTHON_VERSION}}
         run: |
           appimage-builder --recipe appimage/AppImageBuilder.yml
+
+      - name: Verify AppImage runs
+        run: |
+          chmod +x *.AppImage
+          xvfb-run --auto-servernum ./*.AppImage --appimage-extract-and-run --version
 
       - name: Create release folder
         run: |

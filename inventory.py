@@ -177,36 +177,54 @@ class BaseDrop:
     async def claim(self) -> bool:
         if not self.claim_id:
             return False
-        result = await self._claim()
+        result, error_code = await self._claim()
         if result:
             self.is_claimed = True
             self._twitch._claimed_drops.add(self.id)
             if self.claim_id:
                 self._twitch._claimed_drops.add(self.claim_id)
-            claim_text = (
-                f"{self.campaign.game.name}\n"
-                f"{self.rewards_text()} "
-                f"({self.campaign.claimed_drops}/{self.campaign.total_drops})"
+            if error_code != "DROP_INSTANCE_ALREADY_CLAIMED":
+                claim_text = (
+                    f"{self.campaign.game.name}\n"
+                    f"{self.rewards_text()} "
+                    f"({self.campaign.claimed_drops}/{self.campaign.total_drops})"
+                )
+                # two different claim texts, becase a new line after the game name
+                # looks ugly in the output window - replace it with a space
+                self._twitch.print(
+                    _("status", "claimed_drop").format(drop=claim_text.replace('\n', ' '))
+                )
+                self._twitch.gui.tray.notify(claim_text, _("gui", "tray", "notification_title"))
+            else:
+                logger.info(f"Drop ID {self.id} was already claimed on Twitch; state synchronized.")
+        elif error_code == "ACCOUNT_LINK_REQUIRED":
+            link_url = self.campaign.link_url or "https://www.twitch.tv/drops/inventory"
+            drop_desc = f"{self.campaign.game.name} - {self.rewards_text()}"
+            fail_text = _("status", "claim_failed_link_required").format(
+                drop=drop_desc, url=link_url
             )
-            # two different claim texts, becase a new line after the game name
-            # looks ugly in the output window - replace it with a space
-            self._twitch.print(
-                _("status", "claimed_drop").format(drop=claim_text.replace('\n', ' '))
+            self._twitch.print(f"⚠️ {fail_text}")
+            self._twitch.gui.tray.notify(
+                f"{drop_desc}\n{link_url}",
+                _("gui", "tray", "notification_title"),
             )
-            self._twitch.gui.tray.notify(claim_text, _("gui", "tray", "notification_title"))
+            logger.warning(
+                f"Drop claim for {self.id} ({drop_desc}) requires account linking: {link_url}"
+            )
+            self.claim_id = None
         else:
             logger.error(f"Drop claim has potentially failed! Drop ID: {self.id}")
             self.claim_id = None
         return result
 
-    async def _claim(self) -> bool:
+    async def _claim(self) -> tuple[bool, str | None]:
         """
-        Returns True if the claim succeeded, False otherwise.
+        Returns (success: bool, error_code: str | None).
         """
         if self.is_claimed:
-            return True
+            return True, None
         if not self.can_claim:
-            return False
+            return False, "CANNOT_CLAIM"
         try:
             response = await self._twitch.gql_request(
                 GQL_QUERIES["ClaimDrop"].with_variables(
@@ -216,21 +234,40 @@ class BaseDrop:
         except GQLException:
             # regardless of the error, we have to assume
             # the claiming operation has potentially failed
-            return False
+            return False, "GQL_EXCEPTION"
         data = response.get("data")
         if not data or not isinstance(data, dict):
-            return False
+            return False, "NO_DATA"
         if "errors" in data and data["errors"]:
-            return False
+            return False, "GQL_ERRORS"
         elif "claimDropRewards" in data:
-            if not data["claimDropRewards"]:
-                return False
-            elif (
-                data["claimDropRewards"]["status"]
-                in ("ELIGIBLE_FOR_ALL", "DROP_INSTANCE_ALREADY_CLAIMED")
-            ):
-                return True
-        return False
+            claim_data = data["claimDropRewards"]
+            if not claim_data or not isinstance(claim_data, dict):
+                return False, "NO_CLAIM_DATA"
+
+            # Check if Twitch returned an error payload (e.g. ACCOUNT_LINK_REQUIRED)
+            err = claim_data.get("error")
+            if err and isinstance(err, dict):
+                err_code = err.get("code") or "CLAIM_ERROR"
+                err_msg = err.get("message") or ""
+                logger.warning(
+                    f"Claim error for {self.id} ({self.name}): {err_code} - {err_msg}"
+                )
+                return False, err_code
+
+            status = claim_data.get("status")
+            drop_type = claim_data.get("dropType") or {}
+            drop_id = drop_type.get("id") if isinstance(drop_type, dict) else ""
+            is_connected = claim_data.get("isUserAccountConnected", True)
+
+            if status == "ELIGIBLE_FOR_ALL":
+                # Ensure Twitch actually attributed the drop and account is connected
+                if not drop_id or is_connected is False:
+                    return False, "ACCOUNT_LINK_REQUIRED"
+                return True, None
+            elif status == "DROP_INSTANCE_ALREADY_CLAIMED":
+                return True, "DROP_INSTANCE_ALREADY_CLAIMED"
+        return False, "UNKNOWN"
 
 
 class TimedDrop(BaseDrop):

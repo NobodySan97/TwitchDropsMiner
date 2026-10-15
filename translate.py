@@ -17,6 +17,7 @@ class StatusMessages(TypedDict):
     goes_online: str
     goes_offline: str
     claimed_drop: str
+    claim_failed_link_required: str
     no_channel: str
     no_campaign: str
 
@@ -248,6 +249,7 @@ default_translation: Translation = {
         "goes_online": "{channel} goes ONLINE, switching...",
         "goes_offline": "{channel} goes OFFLINE, switching...",
         "claimed_drop": "Claimed drop: {drop}",
+        "claim_failed_link_required": "Claim requires account linking for {drop}. Link your account at: {url}",
         "no_channel": "No available channels to watch. Waiting for an ONLINE channel...",
         "no_campaign": "No active campaigns to mine drops for. Waiting for an active campaign...",
     },

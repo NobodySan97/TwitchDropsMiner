@@ -1372,18 +1372,17 @@ class TrayIcon:
             return None
 
         async def notifier():
-            # On Windows, always trigger native Windows toast notification
-            if sys.platform == "win32":
-                display_title = title or self.TITLE
-                await asyncio.to_thread(send_windows_toast, display_title, message)
-
-            # If pystray icon is currently running and visible in system tray, also show tray balloon
+            # If pystray icon is currently running and visible in system tray, use native tray notification
             if self.icon is not None and getattr(self.icon, "visible", False):
                 with suppress(Exception):
                     self.icon.notify(message, title)
                     await asyncio.sleep(duration)
                     self.icon.remove_notification()
-            elif sys.platform != "win32" and self.icon is not None:
+            elif sys.platform == "win32":
+                # Fallback to Windows Toast when tray icon is not visible (window is open)
+                display_title = title or self.TITLE
+                await asyncio.to_thread(send_windows_toast, display_title, message)
+            elif self.icon is not None:
                 with suppress(Exception):
                     self.icon.notify(message, title)
                     await asyncio.sleep(duration)
@@ -1422,10 +1421,14 @@ class UpdateBanner(ttk.Frame):
         self._btn_ignore = ttk.Button(self._btn_frame, text="Ignore")
         self._btn_ignore.pack(side="left", padx=3)
 
-    def show(self, sha: str, on_update, on_later, on_ignore):
+    def show(self, sha: str, on_update, on_later, on_ignore, is_ready: bool = False):
         display_sha = sha[:7] if len(sha) >= 7 else "latest"
-        self._lbl.config(text=f"🚀 A new update is available ({display_sha}).")
-        self._btn_update.config(command=on_update)
+        if is_ready:
+            self._lbl.config(text=f"🚀 Update ({display_sha}) is ready to install.")
+            self._btn_update.config(text="Restart Now", command=on_update)
+        else:
+            self._lbl.config(text=f"🚀 A new update is available ({display_sha}).")
+            self._btn_update.config(text="Update Now", command=on_update)
         self._btn_later.config(command=on_later)
         self._btn_ignore.config(command=on_ignore)
         self.grid(column=0, row=0, sticky="ew", pady=(0, 4))
@@ -2751,12 +2754,17 @@ class GUIManager:
         if self.is_visible:
             self.show_pending_update()
 
+    def set_update_ready(self, sha: str):
+        if self.pending_update and self.is_visible:
+            self.show_pending_update()
+
     def show_pending_update(self):
         if not self.pending_update:
             return
         import updater
         sha = self.pending_update["sha"]
         assets = self.pending_update["assets"]
+        is_ready = updater.is_update_staged(sha)
 
         def _on_update():
             self.update_banner.hide()
@@ -2771,7 +2779,7 @@ class GUIManager:
             updater.decline_update(sha)
             self.pending_update = None
 
-        self.update_banner.show(sha, _on_update, _on_later, _on_ignore)
+        self.update_banner.show(sha, _on_update, _on_later, _on_ignore, is_ready=is_ready)
 
     def _on_window_mapped(self, event: tk.Event):
         if event.widget == self._root and self.pending_update is not None and not self.is_hidden:

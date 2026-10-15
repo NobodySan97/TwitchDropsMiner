@@ -1,9 +1,11 @@
 name: Sync Upstream
 
+# Schedulazione oraria disattivata per evitare esecuzioni automatiche sul fork
 on:
-  schedule:
-    - cron: '0 * * * *' # Controlla ogni ora
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   sync:

@@ -6,6 +6,7 @@
         "goes_online": "{channel} è ONLINE, cambiando...",
         "goes_offline": "{channel} è OFFLINE, cambiando...",
         "claimed_drop": "Contenuti riscattati: {drop}",
+        "claim_failed_link_required": "Il riscatto richiede il collegamento dell'account per {drop}. Visita: {url}",
         "no_channel": "Nessun canale disponibile da guardare. In attesa di un canale ONLINE...",
         "no_campaign": "Nessuna campagna attiva per ottenere i premi. In attesa di una campagna attiva..."
     },
