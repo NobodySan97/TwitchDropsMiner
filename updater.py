@@ -21,92 +21,9 @@ def _is_hex_hash(s: str | None) -> bool:
     return bool(s and re.fullmatch(r"[0-9a-fA-F]{7,40}", s))
 
 
-def clean_env() -> dict[str, str]:
-    """
-    Environment for a process that outlives us: none of this onefile exe's PyInstaller state.
-
-    A child started with _PYI_* / _MEIPASS2 set thinks it is part of *this* exe and loads
-    python3xx.dll from our _MEI… temp folder — which is deleted the moment we exit
-    ("Failed to load Python DLL" after an update).
-    """
-    env = {
-        k: v for k, v in os.environ.items()
-        if not k.upper().startswith(("_PYI_", "_MEIPASS", "TCL_LIBRARY", "TK_LIBRARY"))
-    }
-    mei = getattr(sys, "_MEIPASS", None)
-    if mei:
-        parts = env.get("PATH", "").split(os.pathsep)
-        env["PATH"] = os.pathsep.join(
-            p for p in parts if p and not p.lower().startswith(str(mei).lower())
-        )
-    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"  # PyInstaller >= 6.9: always start as a fresh app
-    return env
-
-
-def apply_windows_update(
-    new_exe: str | os.PathLike,
-    current_exe: str | os.PathLike,
-    args: list[str] | tuple[str, ...] = (),
-    stage_dir: str | os.PathLike | None = None,
-) -> None:
-    """
-    Windows in-place executable replacement.
-    Renames the current running executable to a .old timestamped file (allowed by NTFS),
-    copies new_exe in place, cleans staging, launches new_exe, and terminates this process.
-    Leftover .old files are cleaned on next startup by cleanup_old_executables().
-    """
-    current_exe_str = str(current_exe)
-    new_exe_str = str(new_exe)
-    old_exe = current_exe_str + f".old.{int(time.time())}"
-
-    # Rename current running executable (NTFS allows renaming open files)
-    os.rename(current_exe_str, old_exe)
-    try:
-        shutil.copy2(new_exe_str, current_exe_str)
-    except Exception as copy_err:
-        if os.path.exists(old_exe) and not os.path.exists(current_exe_str):
-            os.rename(old_exe, current_exe_str)
-        raise copy_err
-
-    if stage_dir and os.path.exists(stage_dir):
-        shutil.rmtree(stage_dir, ignore_errors=True)
-
-    flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    subprocess.Popen([current_exe_str] + list(args), env=clean_env(), creationflags=flags)
-    os._exit(0)
-
-
-
-def apply_linux_update(
-    new_exe: str | os.PathLike,
-    current_exe: str | os.PathLike,
-    args: list[str] | tuple[str, ...] = (),
-    stage_dir: str | os.PathLike | None = None,
-) -> None:
-    """
-    Linux in-place executable replacement with clean environment.
-    """
-    current_exe_str = str(current_exe)
-    new_exe_str = str(new_exe)
-    old_exe = current_exe_str + f".old.{int(time.time())}"
-    os.rename(current_exe_str, old_exe)
-    try:
-        shutil.copy2(new_exe_str, current_exe_str)
-        os.chmod(current_exe_str, 0o755)
-    except Exception as copy_err:
-        if os.path.exists(old_exe) and not os.path.exists(current_exe_str):
-            os.rename(old_exe, current_exe_str)
-        raise copy_err
-
-    if stage_dir and os.path.exists(stage_dir):
-        shutil.rmtree(stage_dir, ignore_errors=True)
-
-    os.execve(current_exe_str, [current_exe_str] + list(args), clean_env())
-
-
 def cleanup_old_executables():
     """
-    Cleans up any leftover .old.* files and temp update scripts from previous update cycles.
+    Cleans up any leftover .old.* files from previous update cycles.
     """
     if not getattr(sys, "frozen", False):
         return
@@ -124,32 +41,11 @@ def cleanup_old_executables():
     except Exception:
         pass
 
-    try:
-        tmp_dir = tempfile.gettempdir()
-        for item in os.listdir(tmp_dir):
-            if item.startswith("tdm_stage_") or item.startswith("tdm-update-") or item.startswith("tdm_update_"):
-                p = os.path.join(tmp_dir, item)
-                try:
-                    if os.path.isdir(p):
-                        shutil.rmtree(p, ignore_errors=True)
-                    else:
-                        os.remove(p)
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
 
 _pending_update: dict | None = None
 _declined_sha: str | None = None
 _notified_sha: str | None = None
 _update_in_progress: bool = False
-def is_update_staged(sha: str | None = None) -> bool:
-    return False
-
-
-def get_staged_update() -> dict | None:
-    return None
 
 
 def decline_update(sha: str):
@@ -250,7 +146,6 @@ async def check_for_updates(gui):
         if not gui.is_hidden:
             gui.set_pending_update(remote_sha or "latest", assets)
 
-
         # Deliver Windows / desktop notification (rate-limited to once per release unless force_test)
         if force_test or _notified_sha != remote_sha:
             _notified_sha = remote_sha
@@ -308,9 +203,6 @@ async def perform_update(gui, assets):
 
     system = platform.system().lower()
     machine = platform.machine().lower()
-    current_exe = sys.executable
-
-
 
     if system == "windows":
         asset_name = "Twitch.Drops.Miner.Windows.zip"
@@ -415,18 +307,57 @@ async def perform_update(gui, assets):
             messagebox.showerror("Update Failed", "Could not locate the new executable in the downloaded update.")
             return
 
-        should_destroy_prog_win = False
-        try:
-            prog_win.destroy()
-        except Exception:
-            pass
+        current_exe = sys.executable
 
         if system == "windows":
-            apply_windows_update(new_exe, current_exe, sys.argv[1:], stage_dir=temp_dir)
-            return
+            old_exe = current_exe + f".old.{int(time.time())}"
+            # Rename current running exe
+            os.rename(current_exe, old_exe)
+            try:
+                shutil.copy2(new_exe, current_exe)
+            except Exception as copy_err:
+                # Rollback if copy fails
+                if os.path.exists(current_exe):
+                    try:
+                        os.remove(current_exe)
+                    except Exception:
+                        pass
+                if os.path.exists(old_exe) and not os.path.exists(current_exe):
+                    os.rename(old_exe, current_exe)
+                raise copy_err
+
+            # PyInstaller clean environment
+            env = os.environ.copy()
+            env.pop("_MEIPASS2", None)
+            for k in list(env.keys()):
+                if k.startswith("_PYI_"):
+                    env.pop(k)
+
+            # Cleanup temp_dir before spawning new process
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+            # Spawn detached process with original command line arguments
+            flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            subprocess.Popen([current_exe] + sys.argv[1:], env=env, creationflags=flags)
+
+            # Immediately terminate parent process to release lock file
+            os._exit(0)
+
         else:
-            apply_linux_update(new_exe, current_exe, sys.argv[1:], stage_dir=temp_dir)
-            return
+            # Linux: rename old, copy new, chmod, and execv
+            old_exe = current_exe + f".old.{int(time.time())}"
+            os.rename(current_exe, old_exe)
+            try:
+                shutil.copy2(new_exe, current_exe)
+                os.chmod(current_exe, 0o755)
+            except Exception as copy_err:
+                if os.path.exists(old_exe) and not os.path.exists(current_exe):
+                    os.rename(old_exe, current_exe)
+                raise copy_err
+
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            # In-place process replacement on Linux
+            os.execv(current_exe, [current_exe] + sys.argv[1:])
 
     except asyncio.CancelledError:
         pass
