@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict, NotRequired, TYPE_CHECKING
+from typing import Any, TypedDict, TYPE_CHECKING
 
 from yarl import URL
 
@@ -8,6 +8,7 @@ from utils import json_load, json_save
 from constants import SETTINGS_PATH, DEFAULT_LANG, PriorityMode
 
 if TYPE_CHECKING:
+    from typing_extensions import NotRequired
     from main import ParsedArgs
 
 
@@ -66,7 +67,6 @@ class Settings:
     available_drops_check: bool
     mine_unlinked: bool
     priority_mode: PriorityMode
-    log: NotRequired[bool]
 
     PASSTHROUGH = ("_settings", "_args", "_altered")
 
