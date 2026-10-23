@@ -47,6 +47,9 @@ from constants import (
     MAX_WEBSOCKETS,
     WS_TOPICS_LIMIT,
     OUTPUT_FORMATTER,
+    LOG_PATH,
+    FILE_FORMATTER,
+    SanitizingFilter,
     State,
     PriorityMode,
 )
@@ -1796,6 +1799,7 @@ class _SettingsVars(TypedDict):
     language: StringVar
     priority_mode: StringVar
     tray_notifications: IntVar
+    log: IntVar
     enable_badges_emotes: IntVar
     available_drops_check: IntVar
     mine_unlinked: IntVar
@@ -1835,6 +1839,7 @@ class SettingsPanel:
             "dark_mode": IntVar(master, int(self._settings.dark_mode)),
             "priority_mode": StringVar(master, self.PRIORITY_MODES[priority_mode]),
             "tray_notifications": IntVar(master, self._settings.tray_notifications),
+            "log": IntVar(master, int(self._settings.log)),
             "enable_badges_emotes": IntVar(
                 master, int(self._settings.enable_badges_emotes)
             ),
@@ -1912,6 +1917,14 @@ class SettingsPanel:
             checkboxes_frame,
             variable=self._vars["dark_mode"],
             command=self.update_dark_mode,
+        ).grid(column=1, row=irow, sticky="w")
+        ttk.Label(
+            checkboxes_frame, text=_("gui", "settings", "general", "log")
+        ).grid(column=0, row=(irow := irow + 1), sticky="e")
+        ttk.Checkbutton(
+            checkboxes_frame,
+            variable=self._vars["log"],
+            command=self.update_log_file,
         ).grid(column=1, row=irow, sticky="w")
         ttk.Label(
             checkboxes_frame, text=_("gui", "settings", "general", "priority_mode")
@@ -2215,6 +2228,25 @@ class SettingsPanel:
                     plistlib.dump(plist_data, file)
             else:
                 plist_file.unlink(missing_ok=True)
+
+    def update_log_file(self) -> None:
+        enabled = bool(self._vars["log"].get())
+        setattr(self._settings, "log", enabled)
+        logger = logging.getLogger("TwitchDrops")
+        from logging.handlers import RotatingFileHandler
+        existing = [h for h in logger.handlers if isinstance(h, RotatingFileHandler)]
+        if enabled and not existing:
+            handler = RotatingFileHandler(
+                LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"
+            )
+            handler.setLevel(logging.INFO)
+            handler.setFormatter(FILE_FORMATTER)
+            handler.addFilter(SanitizingFilter())
+            logger.addHandler(handler)
+        elif not enabled and existing:
+            for h in existing:
+                logger.removeHandler(h)
+                h.close()
 
     def update_excluded_choices(self) -> None:
         self._exclude_entry.config(

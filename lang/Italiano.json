@@ -149,7 +149,8 @@
                 "dark_mode": "Modalità scura: ",
                 "proxy": "Proxy (richiede il riavvio):",
                 "priority_mode": "Modalità priorità: ",
-                "language": "Lingua 🌐 (richiede riavvio): "
+                "language": "Lingua 🌐 (richiede riavvio): ",
+                "log": "Salva log su file (log.txt): "
             },
             "game_name": "Nome del gioco",
             "priority": "Priorità",

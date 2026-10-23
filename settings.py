@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict, TYPE_CHECKING
+from typing import Any, TypedDict, NotRequired, TYPE_CHECKING
 
 from yarl import URL
 
@@ -24,6 +24,7 @@ class SettingsFile(TypedDict):
     available_drops_check: bool
     mine_unlinked: bool
     priority_mode: PriorityMode
+    log: NotRequired[bool]
 
 
 default_settings: SettingsFile = {
@@ -39,6 +40,7 @@ default_settings: SettingsFile = {
     "available_drops_check": False,
     "mine_unlinked": False,
     "priority_mode": PriorityMode.PRIORITY_ONLY,
+    "log": True,
 }
 
 
@@ -64,6 +66,7 @@ class Settings:
     available_drops_check: bool
     mine_unlinked: bool
     priority_mode: PriorityMode
+    log: NotRequired[bool]
 
     PASSTHROUGH = ("_settings", "_args", "_altered")
 
@@ -77,9 +80,11 @@ class Settings:
         if name in self.PASSTHROUGH:
             # passthrough
             return getattr(super(), name)
-        elif hasattr(self._args, name):
-            return getattr(self._args, name)
-        elif name in self._settings:
+        if hasattr(self._args, name):
+            val = getattr(self._args, name)
+            if val is not None:
+                return val
+        if name in self._settings:
             return self._settings[name]  # type: ignore[literal-required]
         return getattr(super(), name)
 
@@ -87,7 +92,7 @@ class Settings:
         if name in self.PASSTHROUGH:
             # passthrough
             return super().__setattr__(name, value)
-        elif name in self._settings:
+        if name in self._settings:
             self._settings[name] = value  # type: ignore[literal-required]
             self._altered = True
             return

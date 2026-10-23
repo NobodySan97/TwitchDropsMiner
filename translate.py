@@ -177,6 +177,7 @@ class GUISettingsGeneral(TypedDict):
     priority_mode: str
     proxy: str
     language: NotRequired[str]
+    log: NotRequired[str]
 
 
 class GUISettingsAdvanced(TypedDict):
@@ -421,6 +422,7 @@ default_translation: Translation = {
                 "priority_mode": "Priority mode: ",
                 "proxy": "Proxy (requires restart):",
                 "language": "Language 🌐 (requires restart): ",
+                "log": "Save logs to file (log.txt): ",
             },
             "advanced": {
                 "name": "Advanced",

@@ -69,7 +69,7 @@ if __name__ == "__main__":
         _verbose: int
         _debug_ws: bool
         _debug_gql: bool
-        log: bool
+        log: bool | None
         tray: bool
         dump: bool
 
@@ -121,7 +121,13 @@ if __name__ == "__main__":
     parser.add_argument("--version", action="version", version=f"v{__version__}")
     parser.add_argument("-v", dest="_verbose", action="count", default=0)
     parser.add_argument("--tray", action="store_true")
-    parser.add_argument("--log", action="store_true")
+    parser.add_argument(
+        "--log",
+        dest="log",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable or disable saving logs to log.txt (enabled by default).",
+    )
     parser.add_argument("--dump", action="store_true")
     # undocumented debug args
     parser.add_argument(
@@ -176,7 +182,7 @@ if __name__ == "__main__":
             handler = RotatingFileHandler(
                 LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"
             )
-            handler.setLevel(settings.logging_level)
+            handler.setLevel(effective_level)
             handler.setFormatter(FILE_FORMATTER)
             handler.addFilter(SanitizingFilter())
             logger.addHandler(handler)
