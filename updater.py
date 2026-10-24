@@ -262,20 +262,64 @@ async def perform_update(gui, assets):
 
     try:
         print(f"Updater: Downloading from {asset_to_download}...")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(asset_to_download) as response:
-                if response.status != 200:
-                    raise RuntimeError(f"Server returned HTTP status {response.status}")
-                total_size = int(response.headers.get("content-length", 0))
-                downloaded = 0
-                with open(zip_path, "wb") as f:
-                    async for chunk in response.content.iter_chunked(16384):
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0:
-                            pct = (downloaded / total_size) * 100
-                            prog_bar["value"] = pct
-                            pct_lbl.config(text=f"{int(pct)}%")
+        download_success = False
+        try:
+            session_kwargs = {"max_line_size": 131072, "max_field_size": 131072}
+            try:
+                session = aiohttp.ClientSession(**session_kwargs)
+            except TypeError:
+                session = aiohttp.ClientSession()
+            async with session:
+                async with session.get(asset_to_download) as response:
+                    if response.status != 200:
+                        raise RuntimeError(f"Server returned HTTP status {response.status}")
+                    total_size = int(response.headers.get("content-length", 0))
+                    downloaded = 0
+                    last_pct = -1
+                    with open(zip_path, "wb") as f:
+                        async for chunk in response.content.iter_chunked(32768):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                pct = int((downloaded / total_size) * 100)
+                                if pct != last_pct:
+                                    last_pct = pct
+                                    prog_bar["value"] = pct
+                                    pct_lbl.config(text=f"{pct}%")
+            download_success = True
+        except Exception as aio_err:
+            print(f"Updater: aiohttp download failed ({aio_err}), falling back to urllib...")
+
+        # Robust fallback using standard urllib.request if aiohttp fails
+        if not download_success:
+            def _urllib_download():
+                req = urllib.request.Request(
+                    asset_to_download,
+                    headers={"User-Agent": "TwitchDropsMiner-Updater"},
+                )
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    total_size = int(resp.headers.get("Content-Length", 0))
+                    downloaded = 0
+                    last_pct = -1
+                    with open(zip_path, "wb") as f:
+                        while True:
+                            chunk = resp.read(32768)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                pct = int((downloaded / total_size) * 100)
+                                if pct != last_pct:
+                                    last_pct = pct
+                                    gui._root.after(0, lambda p=pct: _update_prog(p))
+
+            def _update_prog(p):
+                prog_bar["value"] = p
+                pct_lbl.config(text=f"{p}%")
+
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, _urllib_download)
 
         lbl.config(text="Extracting update...")
         await asyncio.sleep(0.05)

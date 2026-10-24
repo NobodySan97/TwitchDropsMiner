@@ -360,12 +360,20 @@ class Twitch:
         )
         # create session, limited to 50 connections at maximum
         connector = aiohttp.TCPConnector(limit=50)
-        self._session = aiohttp.ClientSession(
-            timeout=timeout,
-            connector=connector,
-            cookie_jar=cookie_jar,
-            headers={"User-Agent": self._client_type.USER_AGENT},
-        )
+        session_kwargs: dict[str, Any] = {
+            "timeout": timeout,
+            "connector": connector,
+            "cookie_jar": cookie_jar,
+            "headers": {"User-Agent": self._client_type.USER_AGENT},
+            "max_line_size": 65536,
+            "max_field_size": 65536,
+        }
+        try:
+            self._session = aiohttp.ClientSession(**session_kwargs)
+        except TypeError:
+            session_kwargs.pop("max_line_size", None)
+            session_kwargs.pop("max_field_size", None)
+            self._session = aiohttp.ClientSession(**session_kwargs)
         return self._session
 
     async def shutdown(self) -> None:
