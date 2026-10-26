@@ -13,12 +13,14 @@
 </p>
 
 > [!TIP]
-> ### 🟢 Operational Status: Verified Working (14 October 2026)
-> All core mining components and Twitch integrations are fully verified and operational as of **October 14, 2026**:
-> - 🔑 **Authentication & Login**: Web login, OAuth device pairing, and cookie session persistence tested and working seamlessly.
+> ### 🟢 Operational Status: Verified Working (26 October 2026)
+> All core mining components and Twitch integrations are fully verified and operational as of **October 26, 2026**:
+> - 🔑 **Authentication & Login**: SMARTBOX pairing, token revocation/invalidation, and cookie session persistence tested and working seamlessly.
 > - ⚡ **Stream-less HLS Mining**: HLS segment HEAD requests actively granting drop minutes on Twitch CloudFront CDN without video decoding or browser overhead.
+> - 🎯 **Dynamic Campaign Discovery & Slug Resolution**: Discovers active drop campaigns across Twitch Browse directories to bypass Twitch server-side dashboard integrity blocks; dynamically resolves priority game directory slugs (e.g. `Aniimo` ➔ `animo`) and caches active campaigns until expiration.
 > - 📊 **Real-time Progress & Drop Claims**: Live minute synchronization via Twitch GQL and WebSocket PubSub with reliable automated claiming.
 > - ⏱️ **Intelligent Stall Watchdog**: Robust 4-minute time-based stall detection that prevents false channel penalization while ensuring seamless channel switching if a streamer stalls or goes offline.
+> - 🔄 **Resilient Auto-Updater**: High-capacity header limits (128KB) and fallback mechanism handling GitHub CSP changes gracefully.
 > - 🧹 **Clean & Resilient Engine**: All obsolete legacy Spade code, non-functional fallbacks, and dead endpoints have been completely audited and streamlined.
 
 > [!NOTE]
@@ -38,7 +40,8 @@
 >   - **Reliable Drop Claiming**: Accurate claim eligibility checks preventing false claims on unearned drops.
 >   - **Session Re-authentication**: Automatic 401 token invalidation and refresh for uninterrupted 24/7 farming.
 >   - **Intelligent Stall Watchdog**: Time-based (4 min) stall detection preventing premature channel bans while auto-recovering when streamers mute drops.
->   - **GUI Memory & Concurrency Protections**: Fixed timer race conditions, listener leaks, theme resets, and bounded console buffers.
+>   - **Dynamic Drop Campaign Discovery**: Scans Twitch Browse directories to uncover all active drop campaigns even when Twitch's dashboard requires integrity checks, auto-resolves game directory slugs, and maintains campaign cache until expiration.
+>   - **GUI Memory & Concurrency Protections**: Fixed timer race conditions, listener leaks, theme resets, bounded console buffers, and guaranteed token/cookie invalidation.
 >   - **Automatic Disk Logging**: Automatic real-time saving to `log.txt` with 10MB auto-rotation.
 
 This application allows you to AFK mine timed Twitch drops, without having to worry about switching channels when the one you were watching goes offline, claiming the drops, or even receiving the stream data itself. This helps you save on bandwidth and hassle.

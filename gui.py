@@ -2518,18 +2518,26 @@ class HelpTab:
 
     async def _invalidate_token(self) -> None:
         auth_state = await self._twitch.get_auth()
-        async with self._twitch.request(
-            "POST",
-            "https://id.twitch.tv/oauth2/revoke",
-            data={
-                "client_id": self._twitch._client_type.CLIENT_ID,
-                "token": auth_state.access_token,
-            }
-        ) as response:
-            if response.status == 200:
-                auth_state.invalidate(delete_cookies=True)
-            else:
-                logger.error(f"Failed to invalidate the auth token: {response.status}")
+        token = getattr(auth_state, "access_token", None)
+        if token:
+            try:
+                async with self._twitch.request(
+                    "POST",
+                    "https://id.twitch.tv/oauth2/revoke",
+                    data={
+                        "client_id": self._twitch._client_type.CLIENT_ID,
+                        "token": token,
+                    },
+                ) as response:
+                    if response.status == 200:
+                        logger.info("Successfully revoked auth token from Twitch.")
+                    else:
+                        logger.warning(
+                            f"Twitch revoke endpoint returned status {response.status} (token may already be invalid)"
+                        )
+            except Exception as exc:
+                logger.warning(f"Error while revoking auth token: {exc}")
+        auth_state.invalidate(delete_cookies=True)
         self._twitch.change_state(State.RESTART)
 
 
