@@ -11,12 +11,6 @@
     },
     "login": {
         "unexpected_content": "返回的内容类型异常，这通常是由于网页被重定向。\n您是否需要先设置VPN或登录到当前网络？",
-        "chrome": {
-            "startup": "正在打开Chrome浏览器...",
-            "login_to_complete": "请再次点击登录按钮，并手动完成登录流程。",
-            "no_token": "无法获取授权令牌。",
-            "closed_window": "Chrome浏览器窗口在登录未完成时被关闭。"
-        },
         "error_code": "登录出错。错误码: {error_code}",
         "incorrect_login_pass": "用户名或密码错误。",
         "incorrect_email_code": "电子邮箱验证码错误。",

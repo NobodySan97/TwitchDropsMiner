@@ -121,9 +121,6 @@ def timestamp(string: str) -> datetime:
             return datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def isonow() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", 'Z')
-
 
 CHARS_ASCII = string.ascii_letters + string.digits
 CHARS_HEX_LOWER = string.digits + "abcdef"
@@ -343,10 +340,6 @@ class ExponentialBackoff:
             self.variance_min = 1 - variance
             self.variance_max = 1 + variance
 
-    @property
-    def exp(self) -> int:
-        return max(0, self.steps - 1)
-
     def __iter__(self) -> abc.Iterator[float]:
         return self
 
@@ -444,8 +437,6 @@ class AwaitableValue(Generic[_T]):
 
 
 class Game:
-    SPECIAL_GAME_IDS: set[int] = {509663, 509672}
-
     def __init__(self, data: JsonType):
         self.id: int = int(data.get("id") or 0)
         self.name: str = data.get("displayName") or data.get("name") or ""
@@ -480,6 +471,3 @@ class Game:
         # strip and collapse dashes
         slug_text = re.sub(r'-{2,}', '-', slug_text.strip('-'))
         return slug_text
-
-    def is_special(self) -> bool:
-        return self.id in self.SPECIAL_GAME_IDS

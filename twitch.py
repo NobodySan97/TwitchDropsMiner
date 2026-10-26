@@ -26,8 +26,6 @@ from exceptions import (
     ExitRequest,
     GQLException,
     ReloadRequest,
-    LoginException,
-    RequestInvalid,
     RequestException,
 )
 from utils import (
@@ -140,13 +138,11 @@ class _AuthState:
                 )
 
                 async def url_waiter(browser=browser):
-                    while (
-                        await browser.test_connection()
-                        and browser.main_tab is not None
-                        and not str(browser.main_tab.url).startswith(
-                            "https://www.twitch.tv/#access_token="
-                        )
-                    ):
+                    while await browser.test_connection():
+                        tabs = getattr(browser, "tabs", [browser.main_tab])
+                        for tab in tabs:
+                            if tab is not None and "#access_token=" in str(tab.url):
+                                return
                         await asyncio.sleep(0.5)
 
                 gui_print(_("login", "browser", "login_to_complete"))
@@ -155,109 +151,33 @@ class _AuthState:
                     coro_unless_closed(login_form.wait_for_login_press()),
                 ])
 
-                # check if the browser window is still open
-                if await browser.test_connection() and browser.main_tab is not None:
-                    match = re.search(r'#access_token=(\w+)', str(browser.main_tab.url), re.I)
-                    if match is not None:
-                        return match.group(1)
+                # check if the browser window is still open and check for token across open tabs
+                if await browser.test_connection():
+                    token = None
+                    tabs = getattr(browser, "tabs", [browser.main_tab])
+                    for tab in tabs:
+                        if tab is not None:
+                            match = re.search(r'#access_token=(\w+)', str(tab.url), re.I)
+                            if match is not None:
+                                token = match.group(1)
+                                break
+                    if token is not None:
+                        return token
                     gui_print(_("login", "browser", "no_token"))
                 else:
                     gui_print(_("login", "browser", "closed_window"))
+            except (ExitRequest, asyncio.CancelledError):
+                raise
             except Exception as b_err:
                 logger.error(f"Error during browser login: {b_err}")
             finally:
                 if browser is not None:
                     try:
-                        await browser.stop()
+                        await asyncio.wait_for(browser.stop(), timeout=3.0)
                     except Exception:
                         pass
                     browser = None
             await coro_unless_closed(login_form.wait_for_login_press())
-
-    async def _oauth_login(self) -> str:
-        login_form: LoginForm = self._twitch.gui.login
-        client_info: ClientInfo = self._twitch._client_type
-        headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "Accept-Language": "en-US",
-            "Cache-Control": "no-cache",
-            "Client-Id": client_info.CLIENT_ID,
-            "Host": "id.twitch.tv",
-            "Origin": str(client_info.CLIENT_URL),
-            "Pragma": "no-cache",
-            "Referer": str(client_info.CLIENT_URL),
-            "User-Agent": client_info.USER_AGENT,
-            "X-Device-Id": self.device_id,
-        }
-        payload = {
-            "client_id": client_info.CLIENT_ID,
-            "scopes": "",  # no scopes needed
-        }
-        while True:
-            try:
-                now = datetime.now(timezone.utc)
-                async with self._twitch.request(
-                    "POST", "https://id.twitch.tv/oauth2/device", headers=headers, data=payload
-                ) as response:
-                    if response.status != 200:
-                        err_text = await response.text()
-                        logger.error(f"OAuth device code request failed ({response.status}): {err_text}")
-                        await asyncio.sleep(5)
-                        continue
-                    response_json: JsonType = await response.json()
-                    required_fields = ("device_code", "user_code", "interval", "verification_uri", "expires_in")
-                    if not isinstance(response_json, dict) or any(k not in response_json for k in required_fields):
-                        logger.error(f"OAuth device code response malformed: {response_json}")
-                        await asyncio.sleep(5)
-                        continue
-                    user_code = response_json["user_code"]
-                    device_code = response_json["device_code"]
-                    interval = response_json["interval"]
-                    verification_uri_str = response_json.get("verification_uri", "https://www.twitch.tv/activate")
-                    if "activate" in verification_uri_str and "device-code=" not in verification_uri_str:
-                        sep = "&" if "?" in verification_uri_str else "?"
-                        verification_uri = URL(f"{verification_uri_str}{sep}device-code={user_code}")
-                    else:
-                        verification_uri = URL(verification_uri_str)
-                    expires_at = now + timedelta(seconds=response_json["expires_in"])
-
-                # Print the code to the user, open them the activate page so they can type it in
-                await login_form.ask_enter_code(verification_uri, user_code)
-
-                payload = {
-                    "client_id": self._twitch._client_type.CLIENT_ID,
-                    "device_code": device_code,
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                }
-                while True:
-                    # sleep first, not like the user is gonna enter the code *that* fast
-                    await asyncio.sleep(interval)
-                    async with self._twitch.request(
-                        "POST",
-                        "https://id.twitch.tv/oauth2/token",
-                        headers=headers,
-                        data=payload,
-                        invalidate_after=expires_at,
-                    ) as response:
-                        if response.status == 200:
-                            response_json = await response.json()
-                            self.access_token = cast(str, response_json["access_token"])
-                            return self.access_token
-                        else:
-                            try:
-                                err_json = await response.json()
-                                err_msg = str(err_json.get("message") or err_json.get("error", ""))
-                                if "slow_down" in err_msg:
-                                    interval += 5
-                                elif "access_denied" in err_msg:
-                                    raise LoginException("Access denied by user")
-                            except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                                pass
-                            continue
-            except RequestInvalid:
-                # the device_code has expired, request a new code
-                continue
 
     def headers(self, *, user_agent: str = '', gql: bool = False, authenticated: bool = True) -> JsonType:
         client_info: ClientInfo = self._twitch._client_type
@@ -419,7 +339,7 @@ class Twitch:
             total=10*connection_quality,
         )
         # create session, limited to 50 connections at maximum
-        connector = aiohttp.TCPConnector(limit=50)
+        connector = aiohttp.TCPConnector(limit=50, keepalive_timeout=60.0)
         session_kwargs: dict[str, Any] = {
             "timeout": timeout,
             "connector": connector,
@@ -1261,7 +1181,7 @@ class Twitch:
 
     @asynccontextmanager
     async def request(
-        self, method: str, url: URL | str, *, invalidate_after: datetime | None = None, **kwargs
+        self, method: str, url: URL | str, **kwargs
     ) -> abc.AsyncIterator[aiohttp.ClientResponse]:
         session = await self.get_session()
         method = method.upper()
@@ -1270,17 +1190,10 @@ class Twitch:
         # Request options may contain login credentials, OAuth headers, or proxy credentials.
         # Keep debugging useful without writing those secrets to a console or log file.
         logger.debug("Request: method=%s, url=%s, options=%s", method, url, sorted(kwargs))
-        session_timeout = timedelta(seconds=session.timeout.total or 0)
         backoff = ExponentialBackoff(maximum=3*60)
         for delay in backoff:
             if self.gui.close_requested:
                 raise ExitRequest()
-            elif (
-                invalidate_after is not None
-                # account for the expiration landing during the request
-                and datetime.now(timezone.utc) >= (invalidate_after - session_timeout)
-            ):
-                raise RequestInvalid()
             try:
                 response: aiohttp.ClientResponse | None = None
                 response = await self.gui.coro_unless_closed(
@@ -1696,7 +1609,7 @@ class Twitch:
                         if not streams and g_info.get("slug") in priority_slugs:
                             priority_empty_slugs.append(g_info["slug"])
 
-                        stream_limit = 8 if g_info.get("slug") in priority_slugs else 4
+                        stream_limit = 4 if g_info.get("slug") in priority_slugs else 2
                         for st in streams[:stream_limit]:
                             bid = st.get("node", {}).get("broadcaster", {}).get("id")
                             if bid:
@@ -1825,9 +1738,12 @@ class Twitch:
             ]
             try:
                 for coro in asyncio.as_completed(fetch_campaigns_tasks):
-                    chunk_campaigns_data = await coro
-                    # merge the inventory and campaigns datas together
-                    inventory_data = self._merge_data(inventory_data, chunk_campaigns_data)
+                    try:
+                        chunk_campaigns_data = await coro
+                        # merge the inventory and campaigns datas together
+                        inventory_data = self._merge_data(inventory_data, chunk_campaigns_data)
+                    except Exception as chunk_exc:
+                        logger.warning(f"Error fetching campaign details chunk: {chunk_exc}")
             except Exception:
                 # asyncio.as_completed doesn't cancel tasks on errors
                 for task in fetch_campaigns_tasks:

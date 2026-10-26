@@ -29,12 +29,8 @@ class BrowserMessages(TypedDict):
     closed_window: str
 
 
-ChromeMessages = BrowserMessages
-
-
 class LoginMessages(TypedDict):
     browser: BrowserMessages
-    chrome: NotRequired[ChromeMessages]
     error_code: str
     unexpected_content: str
     email_code_required: str
@@ -292,16 +288,6 @@ default_translation: Translation = {
             "no_token": "No authorization token could be found.",
             "closed_window": (
                 "The browser window was closed before the login procedure could be completed."
-            ),
-        },
-        "chrome": {
-            "startup": "Opening Chrome...",
-            "login_to_complete": (
-                "Complete the login procedure manually by pressing the Login button again."
-            ),
-            "no_token": "No authorization token could be found.",
-            "closed_window": (
-                "The Chrome window was closed before the login procedure could be completed."
             ),
         },
         "error_code": "Login error code: {error_code}",

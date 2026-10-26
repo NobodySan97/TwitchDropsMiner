@@ -671,16 +671,6 @@ class LoginForm:
         finally:
             self._button.config(state="disabled")
 
-    async def ask_enter_code(self, page_url: URL, user_code: str) -> None:
-        self.update(_("gui", "login", "required"), None)
-        # ensure the window isn't hidden into tray when this runs
-        self._manager.grab_attention(sound=False)
-        self._manager.print(_("gui", "login", "request"))
-        await self.wait_for_login_press()
-        self._manager.print(f"Enter this code on the Twitch's device activation page: {user_code}")
-        await asyncio.sleep(4)
-        webopen(page_url)
-
     def update(self, status: str, user_id: int | None):
         if user_id is not None:
             user_str = str(user_id)
@@ -1142,8 +1132,9 @@ class ChannelList:
     def set_watching(self, channel: Channel):
         self.clear_watching()
         iid = channel.iid
-        self._table.item(iid, tags="watching")
-        self._table.see(iid)
+        if self._table.exists(iid):
+            self._table.item(iid, tags="watching")
+            self._table.see(iid)
 
     def configure_theme(self, *, dark: bool) -> None:
         if dark:
@@ -1977,6 +1968,7 @@ class SettingsPanel:
         def _update_enable_badges_emotes():
             self._settings.enable_badges_emotes = bool(self._vars["enable_badges_emotes"].get())
             self._manager.inv.refresh()
+            self._manager._twitch.change_state(State.GAMES_UPDATE)
 
         ttk.Checkbutton(
             advanced_center,
@@ -2518,7 +2510,7 @@ class HelpTab:
         asyncio.create_task(task_wrapper(self._invalidate_token)())
 
     async def _invalidate_token(self) -> None:
-        auth_state = await self._twitch.get_auth()
+        auth_state = self._twitch._auth_state
         token = getattr(auth_state, "access_token", None)
         if token:
             try:

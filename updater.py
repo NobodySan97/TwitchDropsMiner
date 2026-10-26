@@ -379,6 +379,7 @@ async def perform_update(gui, assets):
             # PyInstaller clean environment
             env = os.environ.copy()
             env.pop("_MEIPASS2", None)
+            env.pop("_MEIPASS", None)
             for k in list(env.keys()):
                 if k.startswith("_PYI_"):
                     env.pop(k)
@@ -389,6 +390,13 @@ async def perform_update(gui, assets):
             # Spawn detached process with original command line arguments
             flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
             subprocess.Popen([current_exe] + sys.argv[1:], env=env, creationflags=flags)
+
+            # Cleanly stop system tray icon before exit to avoid ghost tray icon
+            if hasattr(gui, "tray"):
+                try:
+                    gui.tray.stop()
+                except Exception:
+                    pass
 
             # Immediately terminate parent process to release lock file
             os._exit(0)

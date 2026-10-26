@@ -12,12 +12,6 @@
     },
     "login": {
         "unexpected_content": "Tipo di contenuto inaspettato restituito, di solito a causa di un reindirizzamento. Hai bisogno di fare il login per accedere a internet?",
-        "chrome": {
-            "startup": "Apertura di Chrome...",
-            "login_to_complete": "Completa la procedura di login manualmente premendo nuovamente il pulsante Login.",
-            "no_token": "Nessun token di autorizzazione trovato.",
-            "closed_window": "La finestra di Chrome è stata chiusa prima che la procedura di login potesse completarsi."
-        },
         "error_code": "Codice di errore del login: {error_code}",
         "incorrect_login_pass": "Nome utente o password errati.",
         "incorrect_email_code": "Codice email errato.",
@@ -25,10 +19,10 @@
         "email_code_required": "Codice email richiesto. Controlla la tua email.",
         "twofa_code_required": "Token 2FA richiesto.",
         "browser": {
-            "startup": "Apertura di Chrome...",
+            "startup": "Apertura del browser...",
             "login_to_complete": "Completa la procedura di login manualmente premendo nuovamente il pulsante Login.",
             "no_token": "Nessun token di autorizzazione trovato.",
-            "closed_window": "La finestra di Chrome è stata chiusa prima che la procedura di login potesse completarsi."
+            "closed_window": "La finestra del browser è stata chiusa prima che la procedura di login potesse completarsi."
         }
     },
     "error": {

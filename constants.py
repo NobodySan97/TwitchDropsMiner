@@ -206,8 +206,6 @@ class ClientInfo:
         else:
             self.USER_AGENT = user_agents
 
-    def __iter__(self):
-        return iter((self.CLIENT_URL, self.CLIENT_ID, self.USER_AGENT))
 
 
 class ClientType:
@@ -244,14 +242,6 @@ class ClientType:
                 "tv.twitch.android.app/25.3.0/2503006"
             ),
         ]
-    )
-    SMARTBOX = ClientInfo(
-        URL("https://android.tv.twitch.tv"),
-        "ue6666qo983tsx6so1t0vnawi233wa",
-        (
-            "Mozilla/5.0 (Linux; Android 7.1; Smart Box C1) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
-        ),
     )
 
 

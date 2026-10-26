@@ -523,9 +523,6 @@ class DropsCampaign:
             )
         )
 
-    def get_drop(self, drop_id: str) -> TimedDrop | None:
-        return self.timed_drops.get(drop_id)
-
     def preconditions_chain(self) -> set[str]:
         return set(
             chain.from_iterable(
