@@ -305,6 +305,8 @@ class Twitch:
         self._state_change = asyncio.Event()
         self.wanted_games: list[Game] = []
         self.inventory: list[DropsCampaign] = []
+        self._known_discovered_campaigns: dict[str, JsonType] = {}
+        self._resolved_game_slugs: dict[str, str] = {}
         self._drops: dict[str, TimedDrop] = {}
         self._campaigns: dict[str, DropsCampaign] = {}
         self._claimed_drops: set[str] = set()
@@ -1515,6 +1517,29 @@ class Twitch:
             "eventBasedDrops": c.get("eventBasedDrops") or [],
         }
 
+    async def _resolve_game_slug(self, game_name: str) -> str:
+        if game_name in self._resolved_game_slugs:
+            return self._resolved_game_slugs[game_name]
+        naive_slug = re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', game_name.lower())).strip('-'))
+        try:
+            clean = game_name.replace('"', '\\"')
+            sq = {
+                "query": f'query {{ searchFor(userQuery: "{clean}", platform: "web") {{ games {{ items {{ id name slug }} }} }} }}'
+            }
+            res = await self.gql_request(sq, authenticated=False)
+            if isinstance(res, dict):
+                items = res.get("data", {}).get("searchFor", {}).get("games", {}).get("items", [])
+                if items and isinstance(items, list):
+                    best = items[0]
+                    if best and best.get("slug"):
+                        slug = str(best["slug"])
+                        self._resolved_game_slugs[game_name] = slug
+                        return slug
+        except Exception as e:
+            logger.debug(f"Search for game '{game_name}' slug failed: {e}")
+        self._resolved_game_slugs[game_name] = naive_slug
+        return naive_slug
+
     async def _discover_campaigns(self) -> dict[str, JsonType]:
         popular_slugs = [
             "warframe", "rust", "albion-online", "overwatch-2", "valorant", "world-of-warcraft",
@@ -1536,14 +1561,24 @@ class Twitch:
             "killing-floor-2", "phasmophobia", "lethal-company", "the-finals", "xdefiant",
             "arc-raiders", "alien-isolation", "dragons-dogma-ii", "elden-ring", "the-witcher-3-wild-hunt",
         ]
-        priority_slugs = [
-            re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', g.lower())).strip('-'))
-            for g in self.settings.priority if g
-        ]
-        exclude_slugs = set(
-            re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', g.lower())).strip('-'))
-            for g in self.settings.exclude if g
-        )
+        priority_slugs: list[str] = []
+        for g in self.settings.priority:
+            if g:
+                naive = re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', g.lower())).strip('-'))
+                resolved = await self._resolve_game_slug(g)
+                for s in (resolved, naive):
+                    if s and s not in priority_slugs:
+                        priority_slugs.append(s)
+
+        exclude_slugs: set[str] = set()
+        for g in self.settings.exclude:
+            if g:
+                naive = re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', g.lower())).strip('-'))
+                resolved = await self._resolve_game_slug(g)
+                if resolved:
+                    exclude_slugs.add(resolved)
+                if naive:
+                    exclude_slugs.add(naive)
 
         # Dynamic discovery: query Twitch Browse to discover any active games/categories currently streaming
         dynamic_slugs: list[str] = []
@@ -1603,7 +1638,8 @@ class Twitch:
                         if not streams and g_info.get("slug") in priority_slugs:
                             priority_empty_slugs.append(g_info["slug"])
 
-                        for st in streams[:4]:
+                        stream_limit = 8 if g_info.get("slug") in priority_slugs else 4
+                        for st in streams[:stream_limit]:
                             bid = st.get("node", {}).get("broadcaster", {}).get("id")
                             if bid:
                                 sid_str = str(bid)
@@ -1677,7 +1713,21 @@ class Twitch:
                 except Exception as e:
                     logger.debug(f"Available drops query chunk error: {e}")
 
-        return discovered
+        # Preserve active discovered campaigns until their end date
+        now = datetime.now(timezone.utc)
+        for cid in list(self._known_discovered_campaigns.keys()):
+            c_data = self._known_discovered_campaigns[cid]
+            end_at = c_data.get("endAt")
+            if end_at:
+                try:
+                    dt = timestamp(end_at) if isinstance(end_at, str) else end_at
+                    if dt <= now:
+                        del self._known_discovered_campaigns[cid]
+                except Exception:
+                    pass
+
+        self._known_discovered_campaigns.update(discovered)
+        return dict(self._known_discovered_campaigns)
 
     async def fetch_inventory(self) -> None:
         status_update = self.gui.status.update

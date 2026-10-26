@@ -69,6 +69,7 @@ if __name__ == "__main__":
         _verbose: int
         _debug_ws: bool
         _debug_gql: bool
+        _test_update: bool
         log: bool | None
         tray: bool
         dump: bool
@@ -135,6 +136,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--debug-gql", dest="_debug_gql", action="store_true", help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        "--test-update", dest="_test_update", action="store_true", help=argparse.SUPPRESS
     )
     args = parser.parse_args(namespace=ParsedArgs())
     # load settings
