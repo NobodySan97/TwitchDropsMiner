@@ -22,7 +22,13 @@
         "incorrect_email_code": "Nieprawidłowy kod z e-maila.",
         "incorrect_twofa_code": "Nieprawidłowy kod 2FA.",
         "email_code_required": "Wymagany kod z e-maila.",
-        "twofa_code_required": "Wymagany token 2FA."
+        "twofa_code_required": "Wymagany token 2FA.",
+        "browser": {
+            "startup": "Uruchamianie Chrome...",
+            "login_to_complete": "Kliknij przycisk „Zaloguj” ponownie, aby zakończyć proces ręcznego logowania...",
+            "no_token": "Nie znaleziono tokena autoryzacyjnego.",
+            "closed_window": "Okno przeglądarki Chrome zostało zamknięte przed zakończeniem procesu logowania."
+        }
     },
     "error": {
         "captcha": "Próba logowania została odrzucona przez CAPTCHA.\nProszę spróbować ponownie za co najmniej 12 godzin.",

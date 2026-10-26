@@ -248,6 +248,7 @@ async def perform_update(gui, assets):
         prog_win.geometry("320x130+%d+%d" % (rx + 50, ry + 50))
     prog_win.transient(gui._root)
     prog_win.grab_set()
+    prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
 
     lbl = ttk.Label(prog_win, text="Downloading update, please wait...")
     lbl.pack(pady=10)

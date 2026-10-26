@@ -22,7 +22,13 @@
         "incorrect_email_code": "メールコードが間違っています。",
         "incorrect_twofa_code": "2段階認証コードが間違っています。",
         "email_code_required": "メールコードが必要です。メールを確認してください。",
-        "twofa_code_required": "2段階認証トークンが必要です。"
+        "twofa_code_required": "2段階認証トークンが必要です。",
+        "browser": {
+            "startup": "Chromeを開いています...",
+            "login_to_complete": "ログインボタンを再度押して手動でログイン手続きを完了してください。",
+            "no_token": "認証トークンが見つかりませんでした。",
+            "closed_window": "ログイン手続きが完了する前にChromeウィンドウが閉じられました。"
+        }
     },
     "error": {
         "captcha": "ログイン試行がCAPTCHAによって拒否されました。\n12時間以上後に再試行してください。",

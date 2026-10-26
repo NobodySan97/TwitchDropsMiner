@@ -22,7 +22,13 @@
         "incorrect_email_code": "Hatalı e-posta kodu.",
         "incorrect_twofa_code": "Hatalı 2FA kodu.",
         "email_code_required": "E-posta kodu gerekli. E-postanızı kontrol edin.",
-        "twofa_code_required": "2FA kodu gerekli."
+        "twofa_code_required": "2FA kodu gerekli.",
+        "browser": {
+            "startup": "Chrome açılıyor...",
+            "login_to_complete": "Giriş düğmesine tekrar basarak giriş işlemini manuel olarak tamamlayın.",
+            "no_token": "Yetkilendirme anahtarı (token) bulunamadı.",
+            "closed_window": "Giriş işlemi tamamlanamadan Chrome penceresi kapatıldı."
+        }
     },
     "error": {
         "captcha": "Giriş denemeniz CAPTCHA tarafından reddedildi.\nLütfen 12+ saat sonra tekrar deneyin.",

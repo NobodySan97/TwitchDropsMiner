@@ -31,7 +31,7 @@ upx: bool = False  # Use UPX compression (reduces file size, may increase AV det
 console: bool = False  # True if you'd want to add a console window (useful for debugging)
 one_dir: bool = False  # True for one-dir, False for one-file
 optimize: int | None = None  # -1/None/0=none, 1=remove asserts, 2=also remove docstrings
-app_name: str = "Twitch Drops Miner (by DevilXD)"
+app_name: str = "Twitch Drops Miner (by NobodySan97)"
 
 
 # (source_path, dest_path, required)
@@ -145,12 +145,12 @@ if sys.platform == "win32":
                 StringTable(
                     "040904B0",
                     [
-                        StringStruct("CompanyName", "DevilXD"),
+                        StringStruct("CompanyName", "NobodySan97"),
                         StringStruct("FileDescription", "Twitch Drops Miner"),
                         StringStruct("FileVersion", str(__version__)),
                         StringStruct("InternalName", "Twitch Drops Miner"),
-                        StringStruct("LegalCopyright", "Copyright (C) DevilXD"),
-                        StringStruct("OriginalFilename", "Twitch Drops Miner (by DevilXD).exe"),
+                        StringStruct("LegalCopyright", "Copyright (C) NobodySan97 (fork of DevilXD)"),
+                        StringStruct("OriginalFilename", "Twitch Drops Miner (by NobodySan97).exe"),
                         StringStruct("ProductName", "Twitch Drops Miner"),
                         StringStruct("ProductVersion", str(__version__)),
                     ],
@@ -165,7 +165,7 @@ if sys.platform == "win32":
   <assemblyIdentity
       version="16.0.0.0"
       processorArchitecture="*"
-      name="DevilXD.TwitchDropsMiner"
+      name="NobodySan97.TwitchDropsMiner"
       type="win32"
   />
   <description>Twitch Drops Miner</description>

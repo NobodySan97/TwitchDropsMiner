@@ -22,7 +22,13 @@
         "incorrect_email_code": "Hibás az e-mailben kapott kód.",
         "incorrect_twofa_code": "Hibás 2FA kód.",
         "email_code_required": "E-mailben kapott kód szükséges. Nézd meg a postaládádat.",
-        "twofa_code_required": "2FA kód szükséges."
+        "twofa_code_required": "2FA kód szükséges.",
+        "browser": {
+            "startup": "A Chrome indítása...",
+            "login_to_complete": "Fejezd be a bejelentkezést kézzel, majd nyomd meg újra a Bejelentkezés gombot.",
+            "no_token": "Nem található hitelesítési token.",
+            "closed_window": "A Chrome ablaka bezárult, mielőtt a bejelentkezés befejeződhetett volna."
+        }
     },
     "error": {
         "captcha": "A bejelentkezési kísérletet a CAPTCHA elutasította.\nPróbáld újra legalább 12 óra múlva.",

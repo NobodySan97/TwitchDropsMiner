@@ -128,7 +128,7 @@ PING_TIMEOUT = timedelta(seconds=10)
 ONLINE_DELAY = timedelta(seconds=120)
 WATCH_INTERVAL = timedelta(seconds=20)
 # Strings
-WINDOW_TITLE = f"Twitch Drops Miner v{__version__} (by DevilXD)"
+WINDOW_TITLE = f"Twitch Drops Miner v{__version__} (by NobodySan97)"
 # Logging
 LOGGING_LEVELS = {
     0: logging.ERROR,
@@ -211,6 +211,40 @@ class ClientInfo:
 
 
 class ClientType:
+    ANDROID_APP = ClientInfo(
+        URL("https://www.twitch.tv"),
+        "kd1unb4b3q4t58fwlpcbzcbnm76a8fp",
+        [
+            (
+                "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+            (
+                "Dalvik/2.1.0 (Linux; U; Android 16; SM-S938B Build/BP2A.250605.031) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+            (
+                "Dalvik/2.1.0 (Linux; Android 16; SM-X716N Build/UP1A.231005.007) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+            (
+                "Dalvik/2.1.0 (Linux; U; Android 15; SM-G990B Build/AP3A.240905.015.A2) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+            (
+                "Dalvik/2.1.0 (Linux; U; Android 15; SM-G970F Build/AP3A.241105.008) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+            (
+                "Dalvik/2.1.0 (Linux; U; Android 15; SM-A566E Build/AP3A.240905.015.A2) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+            (
+                "Dalvik/2.1.0 (Linux; U; Android 14; SM-X306B Build/UP1A.231005.007) "
+                "tv.twitch.android.app/25.3.0/2503006"
+            ),
+        ]
+    )
     SMARTBOX = ClientInfo(
         URL("https://android.tv.twitch.tv"),
         "ue6666qo983tsx6so1t0vnawi233wa",

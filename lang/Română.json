@@ -22,7 +22,13 @@
         "incorrect_email_code": "Codul de verificare din e-mail este incorect.",
         "incorrect_twofa_code": "Codul 2FA este incorect.",
         "email_code_required": "Codul de verificare din e-mail este necesar. Vă rugăm să vă verificați e-mailul.",
-        "twofa_code_required": "Este necesar un cod 2FA."
+        "twofa_code_required": "Este necesar un cod 2FA.",
+        "browser": {
+            "startup": "Deschidere Chrome",
+            "login_to_complete": "Finalizați procedura de conectare manual apăsând din nou butonul Conectare.",
+            "no_token": "Nu a putut fi găsit niciun token de autorizare.",
+            "closed_window": "Fereastra Chrome a fost închisă înainte de finalizarea procesului de conectare."
+        }
     },
     "error": {
         "captcha": "Conexiunea a fost respinsă de CAPTCHA. Vă rugăm să încercați din nou în aprox. 12 ore.",

@@ -22,7 +22,13 @@
         "incorrect_email_code": "Le code de vérification de l'e-mail est incorrect.",
         "incorrect_twofa_code": "Le code 2FA est incorrect.",
         "email_code_required": "Code de vérification par e-mail requis. Merci de consulter vos emails.",
-        "twofa_code_required": "Code 2FA requis."
+        "twofa_code_required": "Code 2FA requis.",
+        "browser": {
+            "startup": "Ouverture de Chrome",
+            "login_to_complete": "Terminez la procédure de connexion manuellement en appuyant à nouveau sur le bouton Connexion.",
+            "no_token": "Aucun jeton d'autorisation (authorization token) n'a pu être trouvé.",
+            "closed_window": "La fenêtre Chrome a été fermée avant la fin de la procédure de connexion."
+        }
     },
     "error": {
         "captcha": "La connexion a été rejetée par CAPTCHA. Veuillez réessayer dans env. 12 heures.",

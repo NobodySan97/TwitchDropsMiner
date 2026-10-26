@@ -50,6 +50,16 @@ def set_root_icon(root: tk.Tk, image_path: Path | str) -> None:
             pass
 
 
+async def first_to_complete(coros: abc.Iterable[abc.Coroutine[Any, Any, _T]]) -> _T:
+    tasks = [asyncio.ensure_future(coro) for coro in coros]
+    done: set[asyncio.Task[Any]]
+    pending: set[asyncio.Task[Any]]
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    for task in pending:
+        task.cancel()
+    return await next(iter(done))
+
+
 def chunk(to_chunk: abc.Iterable[_T], chunk_length: int) -> abc.Generator[list[_T], None, None]:
     list_to_chunk = list(to_chunk)
     for i in range(0, len(list_to_chunk), chunk_length):

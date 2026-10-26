@@ -22,7 +22,13 @@
         "incorrect_email_code": "Onjuiste e-mailcode.",
         "incorrect_twofa_code": "Onjuiste 2FA Code.",
         "email_code_required": "E-mailcode vereist. Controleer de e-mail.",
-        "twofa_code_required": "2FA Token vereist."
+        "twofa_code_required": "2FA Token vereist.",
+        "browser": {
+            "startup": "Chrome starten...",
+            "login_to_complete": "Druk nogmaals op Aanmelden om het aanmeldingsproces handmatig te voltooien.",
+            "no_token": "Er is geen autorisatietoken gevonden.",
+            "closed_window": "Het Chrome-venster werd gesloten voordat het inlogproces voltooid kon worden."
+        }
     },
     "error": {
         "captcha": "De inlogpoging is geweigerd door CAPTCHA.\nProbeer het over minimaal 12 uur opnieuw.",

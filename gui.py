@@ -1157,7 +1157,7 @@ class ChannelList:
         selection = self._table.selection()
         if not selection:
             return None
-        return self._channel_map[selection[0]]
+        return self._channel_map.get(selection[0])
 
     def clear_selection(self):
         self._table.selection_set('')
@@ -1974,14 +1974,14 @@ class SettingsPanel:
         ttk.Label(
             advanced_center, text=_("gui", "settings", "advanced", "enable_badges_emotes")
         ).grid(column=0, row=(irow := irow + 1), sticky="e")
+        def _update_enable_badges_emotes():
+            self._settings.enable_badges_emotes = bool(self._vars["enable_badges_emotes"].get())
+            self._manager.inv.refresh()
+
         ttk.Checkbutton(
             advanced_center,
             variable=self._vars["enable_badges_emotes"],
-            command=lambda: setattr(
-                self._settings,
-                "enable_badges_emotes",
-                bool(self._vars["enable_badges_emotes"].get()),
-            ),
+            command=_update_enable_badges_emotes,
         ).grid(column=1, row=irow, sticky="w")
         ttk.Label(
             advanced_center, text=_("gui", "settings", "advanced", "available_drops_check")
@@ -2513,6 +2513,7 @@ class HelpTab:
         self._invalidate_button.grid(column=1, row=0)
 
     def invalidate_token(self) -> None:
+        self._invalidate_button.config(state="disabled")
         # sync to async bridge
         asyncio.create_task(task_wrapper(self._invalidate_token)())
 

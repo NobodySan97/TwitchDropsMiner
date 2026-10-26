@@ -22,7 +22,13 @@
         "incorrect_email_code": "电子邮箱验证码错误。",
         "incorrect_twofa_code": "双重验证码错误。",
         "email_code_required": "需要电子邮件验证码，请检查您的邮箱。",
-        "twofa_code_required": "需要双重验证码。"
+        "twofa_code_required": "需要双重验证码。",
+        "browser": {
+            "startup": "正在打开Chrome浏览器...",
+            "login_to_complete": "请再次点击登录按钮，并手动完成登录流程。",
+            "no_token": "无法获取授权令牌。",
+            "closed_window": "Chrome浏览器窗口在登录未完成时被关闭。"
+        }
     },
     "error": {
         "captcha": "由于验证码验证失败，您的登录请求已被Twitch拒绝，请在12小时后重试。",

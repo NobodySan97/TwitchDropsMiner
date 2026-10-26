@@ -23,7 +23,13 @@
         "incorrect_email_code": "Codice email errato.",
         "incorrect_twofa_code": "Codice 2FA errato.",
         "email_code_required": "Codice email richiesto. Controlla la tua email.",
-        "twofa_code_required": "Token 2FA richiesto."
+        "twofa_code_required": "Token 2FA richiesto.",
+        "browser": {
+            "startup": "Apertura di Chrome...",
+            "login_to_complete": "Completa la procedura di login manualmente premendo nuovamente il pulsante Login.",
+            "no_token": "Nessun token di autorizzazione trovato.",
+            "closed_window": "La finestra di Chrome è stata chiusa prima che la procedura di login potesse completarsi."
+        }
     },
     "error": {
         "captcha": "Il tuo tentativo di login è stato negato da CAPTCHA.\nRiprova tra 12+ ore.",

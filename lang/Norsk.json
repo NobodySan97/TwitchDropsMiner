@@ -22,7 +22,13 @@
         "incorrect_email_code": "Feil e-postkode.",
         "incorrect_twofa_code": "Feil 2FA-kode.",
         "email_code_required": "E-postkode påkrevd. Sjekk e-posten din.",
-        "twofa_code_required": "2FA-token påkrevd."
+        "twofa_code_required": "2FA-token påkrevd.",
+        "browser": {
+            "startup": "Åpner Chrome...",
+            "login_to_complete": "Fullfør innloggingen manuelt ved å trykke på Logg inn-knappen igjen.",
+            "no_token": "Ingen autorisasjonstoken ble funnet.",
+            "closed_window": "Chrome-vinduet ble lukket før innloggingen kunne fullføres."
+        }
     },
     "error": {
         "captcha": "Innloggingsforsøket ditt ble avvist av CAPTCHA.\nVennligst prøv igjen om 12+ timer.",

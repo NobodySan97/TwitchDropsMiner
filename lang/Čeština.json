@@ -22,7 +22,13 @@
             "no_token": "Nebyl nalezen žádný autorizační token.",
             "closed_window": "Okno Chrome bylo zavřeno dříve, než mohl být proces přihlášení dokončen."
         },
-        "error_code": "Kód chyby přihlášení: {error_code}"
+        "error_code": "Kód chyby přihlášení: {error_code}",
+        "browser": {
+            "startup": "Otevírání Chrome...",
+            "login_to_complete": "Dokončete postup přihlášení ručně opětovným stisknutím tlačítka Přihlásit se.",
+            "no_token": "Nebyl nalezen žádný autorizační token.",
+            "closed_window": "Okno Chrome bylo zavřeno dříve, než mohl být proces přihlášení dokončen."
+        }
     },
     "error": {
         "captcha": "Vaše připojení bylo zamítnuto službou Twitch, zkuste to znovu za 12 hodin.",

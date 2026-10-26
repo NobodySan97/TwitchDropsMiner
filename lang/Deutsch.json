@@ -22,7 +22,13 @@
         "incorrect_email_code": "Falscher E-Mail Code.",
         "incorrect_twofa_code": "Falscher 2FA Code.",
         "email_code_required": "E-Mail Code erforderlich. Bitte E-Mail prüfen.",
-        "twofa_code_required": "2FA Token erforderlich."
+        "twofa_code_required": "2FA Token erforderlich.",
+        "browser": {
+            "startup": "Starte Chrome...",
+            "login_to_complete": "Erneut auf Anmelden drücken, um den Anmeldevorgang manuell abzuschließen.",
+            "no_token": "Es wurde kein Autorisierungs-Token gefunden.",
+            "closed_window": "Das Chrome-Fenster wurde geschlossen, bevor der Anmeldevorgang abgeschlossen werden konnte."
+        }
     },
     "error": {
         "captcha": "Der Anmeldeversuch wurde durch CAPTCHA verweigert.\nBitte versuche es in mindestens 12 Stunden erneut.",

@@ -22,7 +22,13 @@
         "incorrect_email_code": "Codigo de email incorreto",
         "incorrect_twofa_code": "Codigo F2A incorreto",
         "email_code_required": "Código no email necessário. Verifique sua caixa de entrada",
-        "twofa_code_required": "Token 2FA necessário."
+        "twofa_code_required": "Token 2FA necessário.",
+        "browser": {
+            "startup": "Abrindo Google Chrome",
+            "login_to_complete": "Por Favor complete o login pela pagina web manualmente pressionando o botão Login novamente.",
+            "no_token": "Seu Token de autorização Twitch não foi encontrado",
+            "closed_window": "O Google Chrome foi fechado antes da autenticação ser concluída."
+        }
     },
     "error": {
         "captcha": "Seu login foi negado pelo CAPTCHA.\nPor favor tente em aproximadamente 12+ horas.",

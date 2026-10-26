@@ -1,5 +1,5 @@
 ###################################
-# Twitch Drops Miner (by DevilXD) #
+# Twitch Drops Miner (by NobodySan97) #
 ###################################
 
 Available command line arguments:

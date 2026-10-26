@@ -36,6 +36,7 @@ from utils import (
     timestamp,
     create_nonce,
     task_wrapper,
+    first_to_complete,
     RateLimiter,
     AwaitableValue,
     ExponentialBackoff,
@@ -115,6 +116,63 @@ class _AuthState:
         )
         self._logged_in.clear()
         self._twitch.gui.help._invalidate_button.config(state="disabled")
+
+    async def _browser_login(self) -> str:
+        import zendriver
+
+        gui_print = self._twitch.gui.print
+        login_form: LoginForm = self._twitch.gui.login
+        client_info: ClientInfo = self._twitch._client_type
+        coro_unless_closed = self._twitch.gui.coro_unless_closed
+
+        if client_info.CLIENT_ID != ClientType.ANDROID_APP.CLIENT_ID:
+            raise RuntimeError("Browser login has only been tested for the ANDROID_APP client")
+
+        while True:
+            gui_print(_("login", "browser", "startup"))
+            browser: zendriver.Browser | None = None
+            try:
+                browser = await zendriver.start()
+                await browser.get(
+                    f"https://www.twitch.tv/login?client_id={client_info.CLIENT_ID}&"
+                    f"redirect_params=client_id%3D{client_info.CLIENT_ID}%26"
+                    "redirect_uri%3Dhttps%253A%252F%252Fwww.twitch.tv%252F%26response_type%3Dtoken"
+                )
+
+                async def url_waiter(browser=browser):
+                    while (
+                        await browser.test_connection()
+                        and browser.main_tab is not None
+                        and not str(browser.main_tab.url).startswith(
+                            "https://www.twitch.tv/#access_token="
+                        )
+                    ):
+                        await asyncio.sleep(0.5)
+
+                gui_print(_("login", "browser", "login_to_complete"))
+                await first_to_complete([
+                    url_waiter(),
+                    coro_unless_closed(login_form.wait_for_login_press()),
+                ])
+
+                # check if the browser window is still open
+                if await browser.test_connection() and browser.main_tab is not None:
+                    match = re.search(r'#access_token=(\w+)', str(browser.main_tab.url), re.I)
+                    if match is not None:
+                        return match.group(1)
+                    gui_print(_("login", "browser", "no_token"))
+                else:
+                    gui_print(_("login", "browser", "closed_window"))
+            except Exception as b_err:
+                logger.error(f"Error during browser login: {b_err}")
+            finally:
+                if browser is not None:
+                    try:
+                        await browser.stop()
+                    except Exception:
+                        pass
+                    browser = None
+            await coro_unless_closed(login_form.wait_for_login_press())
 
     async def _oauth_login(self) -> str:
         login_form: LoginForm = self._twitch.gui.login
@@ -252,7 +310,7 @@ class _AuthState:
                 for invalid_token_attempt in range(2):
                     cookie = jar.filter_cookies(client_info.CLIENT_URL)
                     if "auth-token" not in cookie:
-                        self.access_token = await self._oauth_login()
+                        self.access_token = await self._browser_login()
                         cookie["auth-token"] = self.access_token
                     elif not hasattr(self, "access_token"):
                         logger.info("Restoring session from cookie")
@@ -315,7 +373,7 @@ class Twitch:
         # Do not modify the default, safe values.
         self._gql_limiter = RateLimiter(capacity=5, window=1)
         # Client type, session and auth
-        self._client_type: ClientInfo = ClientType.SMARTBOX
+        self._client_type: ClientInfo = ClientType.ANDROID_APP
         self._session: aiohttp.ClientSession | None = None
         self._auth_state: _AuthState = _AuthState(self)
         # GUI
@@ -1418,7 +1476,7 @@ class Twitch:
         response_list: list[JsonType] = await self.gql_request(
             [
                 GQL_QUERIES["CampaignDetails"].with_variables(
-                    {"channelLogin": auth_state.user_login or str(auth_state.user_id), "dropID": cid}
+                    {"channelLogin": str(auth_state.user_id), "dropID": cid}
                 )
                 for cid in campaign_ids
             ]
@@ -1522,9 +1580,9 @@ class Twitch:
             return self._resolved_game_slugs[game_name]
         naive_slug = re.sub(r'-{2,}', '-', re.sub(r'\W+', '-', re.sub(r'\'', '', game_name.lower())).strip('-'))
         try:
-            clean = game_name.replace('"', '\\"')
             sq = {
-                "query": f'query {{ searchFor(userQuery: "{clean}", platform: "web") {{ games {{ items {{ id name slug }} }} }} }}'
+                "query": 'query SearchGame($query: String!) { searchFor(userQuery: $query, platform: "web") { games { items { id name slug } } } }',
+                "variables": {"query": game_name},
             }
             res = await self.gql_request(sq, authenticated=False)
             if isinstance(res, dict):
@@ -1604,7 +1662,7 @@ class Twitch:
         game_queries = [
             GQL_QUERIES["GameDirectory"].with_variables({
                 "slug": slug,
-                "limit": 6,
+                "limit": 8 if slug in priority_slugs else 6,
                 "options": {
                     "includeRestricted": ["SUB_ONLY_LIVE"],
                     "systemFilters": ["DROPS_ENABLED"],
